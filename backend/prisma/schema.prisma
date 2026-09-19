@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  ALUNO
+  PROFESSOR
+  ADMIN
+}
+
+enum TipoRecurso {
+  SALA
+  EQUIPAMENTO
+}
+
+enum StatusSolicitacao {
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  senha     String
+  perfil    Perfil   @default(ALUNO)
+  criadoEm  DateTime @default(now())
+
+  solicitacoes      Solicitacao[] @relation("SolicitacoesDoUsuario")
+  solicitacoesAprovadas Solicitacao[] @relation("AprovacoesDoAdmin")
+}
+
+model Recurso {
+  id         String      @id @default(cuid())
+  nome       String
+  tipo       TipoRecurso
+  descricao  String?
+  ativo      Boolean     @default(true)
+  criadoEm   DateTime    @default(now())
+
+  solicitacoes Solicitacao[]
+}
+
+model Solicitacao {
+  id            String            @id @default(cuid())
+  usuario       Usuario           @relation("SolicitacoesDoUsuario", fields: [usuarioId], references: [id])
+  usuarioId     String
+  recurso       Recurso           @relation(fields: [recursoId], references: [id])
+  recursoId     String
+  dataInicio    DateTime
+  dataFim       DateTime
+  status        StatusSolicitacao @default(PENDENTE)
+  observacao    String?
+
+  aprovadoPor   Usuario?          @relation("AprovacoesDoAdmin", fields: [aprovadoPorId], references: [id])
+  aprovadoPorId String?
+
+  criadoEm      DateTime          @default(now())
+  atualizadoEm  DateTime          @updatedAt
+}

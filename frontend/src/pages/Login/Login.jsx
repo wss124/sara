@@ -17,10 +17,11 @@ export default function Login(){
             console.log('Login attempt:', values);
 
             setTimeout(() => {
-                setLoading(false);
-                message.success('Login realizado com sucesso!');
-
-            }, 1000);
+    setLoading(false);
+    message.success('Login realizado com sucesso!');
+    localStorage.setItem('sara_auth', 'true');
+    navigate('/home');
+}, 1000);
         } catch (error){
             setLoading(false);
             message.error('E-mail ou senha inválidos!');
@@ -29,8 +30,8 @@ export default function Login(){
 
 
     return(
-        <div>
-            <Card className="Login-card">
+        <div className="login-container">
+            <Card className="login-card">
                 <div className="login-header">
                     <Title level= {2} className="login-title">SARA</Title>
                    <Text type="secondary">Sistema de Alocação de Recursos Acadêmicos</Text>
@@ -64,10 +65,9 @@ export default function Login(){
                     label="Senha"
                   name="senha"
                   rules={[
-                    {required: true , message: 'Informe sua senha.'},
-                    {type: 'email', message: 'A senha deve ter no mínimo 6 caracteres'}
-
-                  ]}
+  {required: true, message: 'Informe sua senha.'},
+  {min: 6, message: 'A senha deve ter no mínimo 6 caracteres'}
+]}
                     >
                         <Input.Password
                             prefix={<LockOutlined />}
