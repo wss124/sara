@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sara_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sara_user
+      POSTGRES_PASSWORD: sara_password
+      POSTGRES_DB: sara_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - sara_pg_data:/var/lib/postgresql/data
+
+volumes:
+  sara_pg_data:
