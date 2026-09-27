@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Form, Button, Input, Card, Typography, message } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
+import { loginRequest } from '../../services/authService';
 import './Login.css'
 
 const {Title, Text } = Typography;
@@ -14,17 +15,18 @@ export default function Login(){
 
         setLoading(true);
         try{
-            console.log('Login attempt:', values);
+            const data = await loginRequest(values.email, values.senha);
 
-            setTimeout(() => {
+    localStorage.setItem('sara_auth', 'true');
+    localStorage.setItem('sara_token', data.token);
+    localStorage.setItem('sara_user', JSON.stringify(data.usuario));
     setLoading(false);
     message.success('Login realizado com sucesso!');
-    localStorage.setItem('sara_auth', 'true');
     navigate('/home');
-}, 1000);
         } catch (error){
             setLoading(false);
-            message.error('E-mail ou senha inválidos!');
+        const msg = error.response?.data?.error || 'Erro ao fazer login.';
+     message.error(msg);
         }
     };
 
