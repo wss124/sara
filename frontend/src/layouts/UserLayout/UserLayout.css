@@ -1,0 +1,107 @@
+.user-layout {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #dfe4ed 0%, #e4e0ec 100%) !important;
+}
+.user-layout > .ant-layout {
+  background: transparent;
+}
+
+/* ---------- Sidebar ---------- */
+.user-sider {
+  background: linear-gradient(180deg, #13305f 0%, #3d2670 100%) !important;
+  box-shadow: 4px 0 30px rgba(19, 38, 80, 0.2);
+}
+.user-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+.user-sider-brand {
+  padding: 28px 24px;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-align: center;
+  border-bottom: 1px solid rgba(232, 200, 116, 0.35);
+  margin-bottom: 16px;
+}
+.user-sider .ant-menu {
+  flex: 1;
+  padding: 0 12px;
+  border-inline-end: none !important;
+  background: transparent;
+}
+.user-sider .ant-menu-item {
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.user-sider .ant-menu-item .ant-menu-item-icon {
+  color: inherit;
+}
+.user-sider .ant-menu-item:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+.user-sider .ant-menu-item-selected {
+  color: #13305f !important;
+  font-weight: 600;
+  background: #fff !important;
+  box-shadow: inset 4px 0 0 #c9a44c;
+}
+.user-sider-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 16px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  color: #fff;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.user-sider-logout:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Header ---------- */
+.user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 24px 24px 0;
+  padding: 0 24px !important;
+  border-radius: 20px;
+  background: #fff !important;
+  box-shadow: 0 10px 30px rgba(19, 38, 80, 0.08);
+}
+.user-header-title {
+  font-weight: 600;
+  color: #555;
+}
+.user-header-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #555;
+}
+.user-header-user .ant-avatar {
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+}
+
+.user-content {
+  margin: 24px;
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 768px) {
+  .user-header-title {
+    display: none;
+  }
+  .user-header,
+  .user-content {
+    margin: 16px 16px 0;
+  }
+}
