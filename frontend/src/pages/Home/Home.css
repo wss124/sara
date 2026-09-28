@@ -1,0 +1,152 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---------- Banner de boas-vindas ---------- */
+.home-hero {
+  position: relative;
+  padding: 40px 48px;
+  border-radius: 24px;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
+  box-shadow: 0 20px 50px rgba(114, 46, 209, 0.25);
+}
+.home-hero::before {
+  content: "";
+  position: absolute;
+  top: -120px;
+  right: 18%;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+.home-hero::after {
+  content: "";
+  position: absolute;
+  bottom: -160px;
+  right: -100px;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+.home-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+}
+.home-hero-tag {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.home-hero h1 {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.home-hero p {
+  margin: 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Elementos decorativos (mesmo estilo do login) */
+.home-deco {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+.home-deco-circle {
+  top: 24%;
+  right: 36%;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+}
+.home-deco-plus {
+  bottom: 18%;
+  right: 30%;
+  font-size: 28px;
+  font-weight: 200;
+  line-height: 1;
+  color: #fff;
+}
+.home-deco-dots {
+  top: 18%;
+  right: 6%;
+  width: 70px;
+  height: 84px;
+  background-image: radial-gradient(#fff 2px, transparent 2.5px);
+  background-size: 14px 14px;
+}
+
+/* ---------- Cards de estatísticas ---------- */
+.home-section-title {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #555;
+}
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  padding: 22px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(114, 46, 209, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(114, 46, 209, 0.16);
+}
+.stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #333;
+}
+.stat-title {
+  font-size: 13px;
+  color: #888;
+}
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 768px) {
+  .home-hero {
+    padding: 32px 24px;
+  }
+  .home-hero h1 {
+    font-size: 26px;
+  }
+  .home-deco-dots,
+  .home-deco-circle,
+  .home-deco-plus {
+    display: none;
+  }
+}
