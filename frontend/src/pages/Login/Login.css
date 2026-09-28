@@ -1,56 +1,195 @@
-  .login-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100vh;
-    background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
-    padding: 16px;
-  }
 
-  .login-card {
-    width: 380px !important;
-    max-width: 90vw;
-    border-radius: 16px !important;
-    border: none !important;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
-    padding: 8px;
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px;
+  background: linear-gradient(135deg, #dfe4ed 0%, #e4e0ec 100%);
+}
+.login-box {
+  display: flex;
+  width: 100%;
+  max-width: 940px;
+  min-height: 540px;
+  background: #fff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(19, 38, 80, 0.25);
+}
+/* ---------- Painel esquerdo ---------- */
+.login-side {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 48px;
+  color: #fff;
+  overflow: hidden;
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+}
+.login-side::before {
+  content: "";
+  position: absolute;
+  top: 22%;
+  left: -70px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+.login-side::after {
+  content: "";
+  position: absolute;
+  bottom: -150px;
+  right: -120px;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+.login-brand {
+  position: absolute;
+  top: 32px;
+  left: 48px;
+  z-index: 1;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #e8c874;
+}
+.login-side-content {
+  position: relative;
+  z-index: 1;
+}
+.login-side-content h1 {
+  margin: 0 0 12px;
+  color: #fff;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.login-side-content p {
+  max-width: 300px;
+  margin: 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+}
+/* Elementos decorativos */
+.deco {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+.deco-circle {
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+}
+.deco-circle-1 { width: 18px; height: 18px; top: 22%; right: 22%; }
+.deco-circle-2 { width: 20px; height: 20px; bottom: 8%; left: 8%; }
+.deco-plus {
+  font-size: 28px;
+  font-weight: 200;
+  line-height: 1;
+  color: #fff;
+}
+.deco-plus-1 { top: 9%; left: 36%; }
+.deco-plus-2 { bottom: 26%; left: 42%; }
+.deco-dots {
+  top: 6%;
+  right: 8%;
+  width: 56px;
+  height: 112px;
+  background-image: radial-gradient(#fff 2px, transparent 2.5px);
+  background-size: 14px 14px;
+}
+.deco-rings {
+  right: 56px;
+  bottom: 56px;
+  width: 80px;
+  height: 80px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 20px rgba(255, 255, 255, 0.1),
+    0 0 0 40px rgba(255, 255, 255, 0.06);
+}
+/* ---------- Painel direito ---------- */
+.login-form-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 56px;
+}
+.login-form-title {
+  margin: 0 0 28px;
+  font-size: 34px;
+  font-weight: 700;
+  color: #555;
+}
+.login-form .ant-input-affix-wrapper {
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+.login-form .ant-input-prefix {
+  margin-inline-end: 10px;
+  color: #aaa;
+}
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -4px 0 24px;
+  font-size: 13px;
+}
+.login-link {
+  color: #666;
+}
+.login-link:hover {
+  color: #3d2670;
+}
+.login-button {
+  height: 48px;
+  border: none;
+  border-radius: 999px !important;
+  font-weight: 600;
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%) !important;
+}
+.login-button:hover {
+  opacity: 0.92;
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%) !important;
+}
+.login-register {
+  margin-top: 22px;
+  text-align: center;
+  font-size: 13px;
+  color: #666;
+}
+.login-register a {
+  color: #3d2670;
+}
+/* ---------- Responsivo ---------- */
+@media (max-width: 768px) {
+  .login-box {
+    flex-direction: column;
+    min-height: auto;
   }
-
-  .login-header {
-    text-align: center;
-    margin-bottom: 32px;
+  .login-side {
+    padding: 80px 32px 32px;
   }
-
-  .login-title {
-    margin-bottom: 4px !important;
-    font-weight: 700 !important;
-    letter-spacing: 1px;
-    background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .login-brand {
+    left: 32px;
   }
-
-  .login-form {
-    margin-top: 8px;
+  .login-side-content h1 {
+    font-size: 26px;
   }
-
-  .login-form .ant-form-item-label > label {
-    font-weight: 500;
+  .deco-dots,
+  .deco-rings {
+    display: none;
   }
-
-  .login-button {
-    margin-top: 12px;
-    height: 44px;
-    border-radius: 8px;
-    font-weight: 600;
-    background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
-    border: none;
+  .login-form-side {
+    padding: 32px 24px;
   }
-
-  @media (max-width: 480px) {
-    .login-card {
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    }
-  }
+}
