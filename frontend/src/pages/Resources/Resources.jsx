@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Row,
   Col,
@@ -22,6 +23,7 @@ import {
   LaptopOutlined,
   EditOutlined,
   DeleteOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import {
   listarRecursos,
@@ -52,6 +54,7 @@ function getStatus(recurso) {
 
 function Resources() {
   const isAdmin = getUser()?.perfil === 'ADMIN';
+  const navigate = useNavigate();
 
   const [recursos, setRecursos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -226,6 +229,20 @@ function Resources() {
 
                   <div className="resource-card-footer">
                     <span className="resource-type">{TIPOS[recurso.tipo].label}</span>
+
+                    {recurso.ativo && !isAdmin && (
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<CalendarOutlined />}
+                        className="resource-request"
+                        onClick={() =>
+                          navigate('/requests', { state: { recursoId: recurso.id } })
+                        }
+                      >
+                        Solicitar
+                      </Button>
+                    )}
 
                     {isAdmin && (
                       <div className="resource-actions">
