@@ -4,8 +4,10 @@ import Login from '../pages/Login/Login';
 import Home from '../pages/Home/Home';
 import Resources from '../pages/Resources/Resources';
 import Requests from '../pages/Requests/Requests';
+import Approvals from '../pages/Approvals/Approvals';
 import UserLayout from '../layouts/UserLayout/UserLayout';
 import PrivateRoute from './PrivateRoute';
+import AdminRoute from './AdminRoute';
 
 function AppRoutes() {
   return (
@@ -24,6 +26,14 @@ function AppRoutes() {
           <Route path="/home" element={<Home />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/requests" element={<Requests />} />
+          <Route
+            path="/approvals"
+            element={
+              <AdminRoute>
+                <Approvals />
+              </AdminRoute>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>
