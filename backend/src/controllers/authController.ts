@@ -2,8 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'segredo_temporario_trocar_depois';
+import { JWT_SECRET } from '../lib/jwt';
 
 export async function register(req: Request, res: Response) {
   const { nome, email, senha, perfil } = req.body;

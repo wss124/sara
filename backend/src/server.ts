@@ -1,10 +1,9 @@
+// Carrega o .env antes de qualquer módulo que leia process.env
+import './env';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import { authRoutes } from './routes/authRoutes';
-console.log('authRoutes:', authRoutes);
-
-dotenv.config();
+import { recursoRoutes } from './routes/recursoRoutes';
 
 const app = express();
 
@@ -15,6 +14,7 @@ app.get('/', (req, res) => {
   res.json({ message: 'API do SARA rodando com sucesso!' });
 });
 app.use('/auth', authRoutes);
+app.use('/recursos', recursoRoutes);
 
 const PORT = process.env.PORT || 3333;
 
