@@ -1,0 +1,170 @@
+.resources {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---------- Cabeçalho ---------- */
+.resources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.resources-header h1 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #13305f;
+}
+.resources-header p {
+  margin: 0;
+  color: #777;
+}
+.resources-new {
+  border: none;
+  border-radius: 999px !important;
+  font-weight: 600;
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%) !important;
+}
+.resources-new:hover {
+  opacity: 0.92;
+}
+
+/* ---------- Resumo ---------- */
+.resources-summary {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px;
+  border-radius: 20px;
+  border-left: 4px solid #c9a44c;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(19, 38, 80, 0.08);
+}
+.resources-summary-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #13305f;
+}
+.resources-summary-label {
+  font-size: 13px;
+  color: #888;
+}
+
+/* ---------- Filtros ---------- */
+.resources-filters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.resources-filters .ant-input-affix-wrapper {
+  flex: 1;
+  min-width: 240px;
+  border-radius: 999px;
+}
+.resources-filters .ant-segmented {
+  border-radius: 999px;
+  padding: 4px;
+}
+.resources-filters .ant-segmented-item {
+  border-radius: 999px !important;
+}
+
+.resources-loading,
+.resources-empty {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+  border-radius: 20px;
+  background: #fff;
+}
+
+/* ---------- Card do recurso ---------- */
+.resource-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 22px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(19, 38, 80, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.resource-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(19, 38, 80, 0.16);
+}
+.resource-card.is-inativo {
+  opacity: 0.6;
+}
+.resource-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.resource-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  font-size: 22px;
+  color: #fff;
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+}
+.resource-card h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #333;
+}
+.resource-card p {
+  flex: 1;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #777;
+}
+.resource-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+.resource-type {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #3d2670;
+}
+.resource-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Status */
+.resource-status {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.status-livre {
+  color: #2f7d55;
+  background: #2f7d551a;
+}
+.status-ocupado {
+  color: #b7862a;
+  background: #b7862a1f;
+}
+.status-inativo {
+  color: #888;
+  background: #f0f0f0;
+}

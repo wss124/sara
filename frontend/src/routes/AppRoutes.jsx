@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import Login from '../pages/Login/Login';
 import Home from '../pages/Home/Home';
+import Resources from '../pages/Resources/Resources';
 import UserLayout from '../layouts/UserLayout/UserLayout';
 import PrivateRoute from './PrivateRoute';
 
@@ -20,6 +21,7 @@ function AppRoutes() {
           }
         >
           <Route path="/home" element={<Home />} />
+          <Route path="/resources" element={<Resources />} />
         </Route>
       </Routes>
     </BrowserRouter>
