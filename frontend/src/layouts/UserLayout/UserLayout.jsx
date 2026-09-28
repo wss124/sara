@@ -1,16 +1,28 @@
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, Avatar } from 'antd';
 import {
   HomeOutlined,
   AppstoreOutlined,
   FileTextOutlined,
   UserOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import './UserLayout.css';
 
 const { Header, Sider, Content } = Layout;
 
+function getUser() {
+  try {
+    return JSON.parse(localStorage.getItem('sara_user'));
+  } catch {
+    return null;
+  }
+}
+
 function UserLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const user = getUser();
 
   const menuItems = [
     {
@@ -35,40 +47,43 @@ function UserLayout() {
     },
   ];
 
+  const handleLogout = () => {
+    localStorage.removeItem('sara_auth');
+    localStorage.removeItem('sara_token');
+    localStorage.removeItem('sara_user');
+    navigate('/login');
+  };
+
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider>
-        <div
-          style={{
-            color: '#fff',
-            fontSize: '24px',
-            fontWeight: 'bold',
-            padding: '20px',
-            textAlign: 'center',
-          }}
-        >
-          SARA
-        </div>
+    <Layout className="user-layout">
+      <Sider className="user-sider" width={230} breakpoint="md" collapsedWidth={0}>
+        <div className="user-sider-brand">SARA</div>
 
         <Menu
-          theme="dark"
           mode="inline"
           items={menuItems}
+          selectedKeys={[location.pathname]}
           onClick={({ key }) => navigate(key)}
         />
+
+        <button type="button" className="user-sider-logout" onClick={handleLogout}>
+          <LogoutOutlined /> Sair
+        </button>
       </Sider>
 
       <Layout>
-        <Header
-          style={{
-            padding: '0 24px',
-            background: '#fff',
-          }}
-        >
-          Sistema de Alocação de Recursos Acadêmicos
+        <Header className="user-header">
+          <span className="user-header-title">
+            Sistema de Alocação de Recursos Acadêmicos
+          </span>
+
+          <div className="user-header-user">
+            <span>{user?.nome}</span>
+            <Avatar icon={<UserOutlined />} />
+          </div>
         </Header>
 
-        <Content style={{ margin: '24px' }}>
+        <Content className="user-content">
           <Outlet />
         </Content>
       </Layout>
