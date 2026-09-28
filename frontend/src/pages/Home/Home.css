@@ -11,8 +11,8 @@
   border-radius: 24px;
   overflow: hidden;
   color: #fff;
-  background: linear-gradient(135deg, #1677ff 0%, #722ed1 100%);
-  box-shadow: 0 20px 50px rgba(114, 46, 209, 0.25);
+  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+  box-shadow: 0 20px 50px rgba(19, 38, 80, 0.25);
 }
 .home-hero::before {
   content: "";
@@ -47,7 +47,9 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 2px;
-  background: rgba(255, 255, 255, 0.18);
+  color: #e8c874;
+  border: 1px solid rgba(232, 200, 116, 0.5);
+  background: rgba(232, 200, 116, 0.12);
 }
 .home-hero h1 {
   margin: 0 0 12px;
@@ -108,12 +110,12 @@
   padding: 22px;
   border-radius: 20px;
   background: #fff;
-  box-shadow: 0 10px 30px rgba(114, 46, 209, 0.08);
+  box-shadow: 0 10px 30px rgba(19, 38, 80, 0.08);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(114, 46, 209, 0.16);
+  box-shadow: 0 16px 40px rgba(19, 38, 80, 0.16);
 }
 .stat-icon {
   display: flex;

@@ -24,25 +24,25 @@ function Home() {
       title: 'Recursos disponíveis',
       value: 24,
       icon: <AppstoreOutlined />,
-      color: '#1677ff',
+      color: '#2b5797',
     },
     {
       title: 'Minhas solicitações',
       value: 3,
       icon: <FileTextOutlined />,
-      color: '#722ed1',
+      color: '#5b3f99',
     },
     {
       title: 'Solicitações aprovadas',
       value: 2,
       icon: <CheckCircleOutlined />,
-      color: '#52c41a',
+      color: '#2f7d55',
     },
     {
       title: 'Aguardando aprovação',
       value: 1,
       icon: <ClockCircleOutlined />,
-      color: '#faad14',
+      color: '#b7862a',
     },
   ];
 
