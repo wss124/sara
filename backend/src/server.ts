@@ -5,6 +5,7 @@ import cors from 'cors';
 import { authRoutes } from './routes/authRoutes';
 import { recursoRoutes } from './routes/recursoRoutes';
 import { solicitacaoRoutes } from './routes/solicitacaoRoutes';
+import { dashboardRoutes } from './routes/dashboardRoutes';
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/recursos', recursoRoutes);
 app.use('/solicitacoes', solicitacaoRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 const PORT = process.env.PORT || 3333;
 
