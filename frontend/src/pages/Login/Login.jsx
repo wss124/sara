@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { loginRequest } from '../../services/authService';
 import './Login.css'
 import { Form, Button, Input, Checkbox, message } from "antd";
@@ -103,7 +103,7 @@ export default function Login(){
 
          <p className="login-register">
            Novo por aqui?{' '}
-           <a href="#" onClick={(e) => e.preventDefault()}>Criar conta</a>
+           <Link to="/register">Criar conta</Link>
          </p>
        </div>
      </div>
