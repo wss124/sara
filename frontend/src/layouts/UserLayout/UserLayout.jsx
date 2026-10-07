@@ -6,6 +6,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   AuditOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import './UserLayout.css';
@@ -42,7 +43,10 @@ function UserLayout() {
       label: 'Minhas solicitações',
     },
     ...(user?.perfil === 'ADMIN'
-      ? [{ key: '/approvals', icon: <AuditOutlined />, label: 'Aprovações' }]
+      ? [
+          { key: '/approvals', icon: <AuditOutlined />, label: 'Aprovações' },
+          { key: '/users', icon: <TeamOutlined />, label: 'Usuários' },
+        ]
       : []),
     {
       key: '/profile',
