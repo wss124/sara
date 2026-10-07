@@ -168,3 +168,8 @@
   color: #888;
   background: #f0f0f0;
 }
+
+.resource-request {
+  border-radius: 999px !important;
+  font-weight: 600;
+}
