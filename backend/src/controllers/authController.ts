@@ -5,7 +5,9 @@ import { prisma } from '../lib/prisma';
 import { JWT_SECRET } from '../lib/jwt';
 
 export async function register(req: Request, res: Response) {
-  const { nome, email, senha, perfil } = req.body;
+  // O perfil não vem do corpo: todo cadastro público nasce como ALUNO e só
+  // um administrador pode promover a conta (rota /usuarios/:id/perfil).
+  const { nome, email, senha } = req.body;
 
   if (!nome || !email || !senha) {
     return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
@@ -25,7 +27,6 @@ export async function register(req: Request, res: Response) {
         nome,
         email,
         senha: senhaHash,
-        perfil: perfil || 'ALUNO',
       },
     });
 
