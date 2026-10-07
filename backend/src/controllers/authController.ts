@@ -3,12 +3,24 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { JWT_SECRET } from '../lib/jwt';
+import { DOMINIOS_PERMITIDOS, emailInstitucional } from '../lib/dominios';
 
 export async function register(req: Request, res: Response) {
-  const { nome, email, senha, perfil } = req.body;
+  // O perfil não vem do corpo: todo cadastro público nasce como ALUNO e só
+  // um administrador pode promover a conta (rota /usuarios/:id/perfil).
+  const { nome, senha } = req.body;
+  const email = String(req.body.email ?? '').trim().toLowerCase();
 
-  if (!nome || !email || !senha) {
+  if (!nome?.trim() || !email || !senha) {
     return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
+  }
+  if (!emailInstitucional(email)) {
+    return res.status(400).json({
+      error: `Use seu e-mail institucional (${DOMINIOS_PERMITIDOS.map((d) => '@' + d).join(' ou ')}).`,
+    });
+  }
+  if (String(senha).length < 6) {
+    return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
   }
 
   try {
@@ -22,10 +34,9 @@ export async function register(req: Request, res: Response) {
 
     const usuario = await prisma.usuario.create({
       data: {
-        nome,
+        nome: nome.trim(),
         email,
         senha: senhaHash,
-        perfil: perfil || 'ALUNO',
       },
     });
 
@@ -42,7 +53,8 @@ export async function register(req: Request, res: Response) {
 }
 
 export async function login(req: Request, res: Response) {
-  const { email, senha } = req.body;
+  const { senha } = req.body;
+  const email = String(req.body.email ?? '').trim().toLowerCase();
 
   if (!email || !senha) {
     return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });

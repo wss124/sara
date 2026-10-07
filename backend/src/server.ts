@@ -6,6 +6,7 @@ import { authRoutes } from './routes/authRoutes';
 import { recursoRoutes } from './routes/recursoRoutes';
 import { solicitacaoRoutes } from './routes/solicitacaoRoutes';
 import { dashboardRoutes } from './routes/dashboardRoutes';
+import { usuarioRoutes } from './routes/usuarioRoutes';
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use('/auth', authRoutes);
 app.use('/recursos', recursoRoutes);
 app.use('/solicitacoes', solicitacaoRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/usuarios', usuarioRoutes);
 
 const PORT = process.env.PORT || 3333;
 
