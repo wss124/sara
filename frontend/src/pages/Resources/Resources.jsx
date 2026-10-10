@@ -274,7 +274,7 @@ function Resources() {
           {filtrados.map((recurso) => {
             const status = getStatus(recurso);
             return (
-              <Col xs={24} sm={12} xl={8} key={recurso.id}>
+              <Col xs={24} sm={12} lg={8} xxl={6} key={recurso.id}>
                 <div className={`resource-card ${recurso.ativo ? '' : 'is-inativo'}`}>
                   <div className="resource-cover">
                     <img src={capaDoRecurso(recurso)} alt={recurso.nome} loading="lazy" />
