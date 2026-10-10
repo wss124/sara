@@ -11,7 +11,7 @@ dayjs.locale('pt-br');
 const theme = {
   token: {
     colorPrimary: '#13305f',
-    colorLink: '#3d2670',
+    colorLink: '#0a1f44',
   },
 };
 

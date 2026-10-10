@@ -25,7 +25,7 @@
   border: none;
   border-radius: 999px !important;
   font-weight: 600;
-  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%) !important;
+  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%) !important;
 }
 .page-primary-button:hover {
   opacity: 0.92;
@@ -73,7 +73,7 @@
   border-radius: 14px;
   font-size: 20px;
   color: #fff;
-  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%);
 }
 .request-info {
   flex: 1;
@@ -87,7 +87,7 @@
 }
 .request-period {
   font-size: 13px;
-  color: #3d2670;
+  color: #0a1f44;
   text-transform: capitalize;
 }
 .request-info p {

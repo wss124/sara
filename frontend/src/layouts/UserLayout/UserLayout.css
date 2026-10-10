@@ -1,6 +1,6 @@
 .user-layout {
   min-height: 100vh;
-  background: linear-gradient(135deg, #dfe4ed 0%, #e4e0ec 100%) !important;
+  background: linear-gradient(135deg, #dfe4ed 0%, #d8dfea 100%) !important;
 }
 .user-layout > .ant-layout {
   background: transparent;
@@ -8,7 +8,7 @@
 
 /* ---------- Sidebar ---------- */
 .user-sider {
-  background: linear-gradient(180deg, #13305f 0%, #3d2670 100%) !important;
+  background: linear-gradient(180deg, #13305f 0%, #0a1f44 100%) !important;
   box-shadow: 4px 0 30px rgba(19, 38, 80, 0.2);
 }
 .user-sider .ant-layout-sider-children {
@@ -88,7 +88,7 @@
   color: #555;
 }
 .user-header-user .ant-avatar {
-  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%);
 }
 
 .user-content {

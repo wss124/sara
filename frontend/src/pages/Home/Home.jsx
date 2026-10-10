@@ -85,7 +85,7 @@ function Home() {
       title: 'Recursos em uso agora',
       value: recursos.ocupados,
       icon: <FieldTimeOutlined />,
-      color: '#5b3f99',
+      color: '#1d3f73',
       to: '/resources',
     },
     {
@@ -178,7 +178,7 @@ function Home() {
             <Progress
               percent={taxa}
               showInfo={false}
-              strokeColor={{ from: '#13305f', to: '#5b3f99' }}
+              strokeColor={{ from: '#13305f', to: '#1d3f73' }}
             />
 
             {ocupacaoFiltrada.length === 0 ? (
