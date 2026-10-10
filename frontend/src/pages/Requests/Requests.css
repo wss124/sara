@@ -15,7 +15,7 @@
   margin: 0 0 4px;
   font-size: 28px;
   font-weight: 700;
-  color: #13305f;
+  color: #0b2149;
 }
 .page-header p {
   margin: 0;
@@ -25,7 +25,7 @@
   border: none;
   border-radius: 999px !important;
   font-weight: 600;
-  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%) !important;
+  background: linear-gradient(135deg, #0b2149 0%, #050f24 100%) !important;
 }
 .page-primary-button:hover {
   opacity: 0.92;
@@ -73,7 +73,7 @@
   border-radius: 14px;
   font-size: 20px;
   color: #fff;
-  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%);
+  background: linear-gradient(135deg, #0b2149 0%, #050f24 100%);
 }
 .request-info {
   flex: 1;
@@ -87,7 +87,7 @@
 }
 .request-period {
   font-size: 13px;
-  color: #0a1f44;
+  color: #050f24;
   text-transform: capitalize;
 }
 .request-info p {
@@ -140,8 +140,8 @@
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 13px;
-  color: #13305f;
-  background: #13305f0f;
+  color: #0b2149;
+  background: #0b21490f;
 }
 
 @media (max-width: 768px) {

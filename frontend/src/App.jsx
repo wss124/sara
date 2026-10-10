@@ -10,8 +10,8 @@ dayjs.locale('pt-br');
 // Paleta institucional: azul-marinho como cor principal dos componentes do Ant Design
 const theme = {
   token: {
-    colorPrimary: '#13305f',
-    colorLink: '#0a1f44',
+    colorPrimary: '#0b2149',
+    colorLink: '#050f24',
   },
 };
 

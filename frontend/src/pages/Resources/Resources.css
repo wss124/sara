@@ -16,7 +16,7 @@
   margin: 0 0 4px;
   font-size: 28px;
   font-weight: 700;
-  color: #13305f;
+  color: #0b2149;
 }
 .resources-header p {
   margin: 0;
@@ -26,7 +26,7 @@
   border: none;
   border-radius: 999px !important;
   font-weight: 600;
-  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%) !important;
+  background: linear-gradient(135deg, #0b2149 0%, #050f24 100%) !important;
 }
 .resources-new:hover {
   opacity: 0.92;
@@ -46,7 +46,7 @@
   font-size: 28px;
   font-weight: 700;
   line-height: 1.1;
-  color: #13305f;
+  color: #0b2149;
 }
 .resources-summary-label {
   font-size: 13px;
@@ -114,7 +114,7 @@
   border-radius: 14px;
   font-size: 22px;
   color: #fff;
-  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%);
+  background: linear-gradient(135deg, #0b2149 0%, #050f24 100%);
 }
 .resource-card h3 {
   margin: 0 0 6px;
@@ -141,7 +141,7 @@
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #0a1f44;
+  color: #050f24;
 }
 .resource-actions {
   display: flex;

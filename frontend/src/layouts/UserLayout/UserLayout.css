@@ -8,7 +8,7 @@
 
 /* ---------- Sidebar ---------- */
 .user-sider {
-  background: linear-gradient(180deg, #13305f 0%, #0a1f44 100%) !important;
+  background: linear-gradient(180deg, #0b2149 0%, #050f24 100%) !important;
   box-shadow: 4px 0 30px rgba(19, 38, 80, 0.2);
 }
 .user-sider .ant-layout-sider-children {
@@ -43,7 +43,7 @@
   background: rgba(255, 255, 255, 0.12) !important;
 }
 .user-sider .ant-menu-item-selected {
-  color: #13305f !important;
+  color: #0b2149 !important;
   font-weight: 600;
   background: #fff !important;
   box-shadow: inset 4px 0 0 #c9a44c;
@@ -88,7 +88,7 @@
   color: #555;
 }
 .user-header-user .ant-avatar {
-  background: linear-gradient(135deg, #13305f 0%, #0a1f44 100%);
+  background: linear-gradient(135deg, #0b2149 0%, #050f24 100%);
 }
 
 .user-content {
