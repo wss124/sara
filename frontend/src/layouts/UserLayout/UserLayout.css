@@ -7,13 +7,20 @@
 }
 
 /* ---------- Sidebar ---------- */
+/* Fica presa na tela enquanto o conteúdo rola */
 .user-sider {
+  position: sticky !important;
+  top: 0;
+  z-index: 10;
+  align-self: flex-start;
+  height: 100vh;
   background: linear-gradient(180deg, #0b2149 0%, #050f24 100%) !important;
   box-shadow: 4px 0 30px rgba(19, 38, 80, 0.2);
 }
 .user-sider .ant-layout-sider-children {
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 .user-sider-brand {
   padding: 28px 24px;
