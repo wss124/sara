@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b2149"/>
+      <stop offset="1" stop-color="#050f24"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="270" fill="url(#bg)"/>
+  <circle cx="420" cy="40" r="90" fill="#fff" opacity="0.04"/>
+  <circle cx="60" cy="250" r="70" fill="#fff" opacity="0.04"/>
+
+  <!-- Quadro -->
+  <rect x="130" y="40" width="220" height="110" rx="8" fill="#163a6b" stroke="#c9a44c" stroke-width="4"/>
+  <path d="M155 75h90M155 95h130M155 115h70" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.55"/>
+  <rect x="290" y="150" width="40" height="6" rx="3" fill="#c9a44c"/>
+
+  <!-- Carteiras -->
+  <g fill="#fff" opacity="0.85">
+    <rect x="70" y="190" width="90" height="10" rx="4"/>
+    <rect x="195" y="190" width="90" height="10" rx="4"/>
+    <rect x="320" y="190" width="90" height="10" rx="4"/>
+  </g>
+  <g stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.5">
+    <path d="M80 200v30M150 200v30M205 200v30M275 200v30M330 200v30M400 200v30"/>
+  </g>
+</svg>

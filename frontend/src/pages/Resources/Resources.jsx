@@ -31,11 +31,13 @@ import {
   atualizarRecurso,
   removerRecurso,
 } from '../../services/recursoService';
+import capaSala from '../../assets/recursos/sala.svg';
+import capaEquipamento from '../../assets/recursos/equipamento.svg';
 import './Resources.css';
 
 const TIPOS = {
-  SALA: { label: 'Sala', icon: <BankOutlined /> },
-  EQUIPAMENTO: { label: 'Equipamento', icon: <LaptopOutlined /> },
+  SALA: { label: 'Sala', icon: <BankOutlined />, capa: capaSala },
+  EQUIPAMENTO: { label: 'Equipamento', icon: <LaptopOutlined />, capa: capaEquipamento },
 };
 
 function getUser() {
@@ -219,7 +221,8 @@ function Resources() {
             return (
               <Col xs={24} sm={12} xl={8} key={recurso.id}>
                 <div className={`resource-card ${recurso.ativo ? '' : 'is-inativo'}`}>
-                  <div className="resource-card-top">
+                  <div className="resource-cover">
+                    <img src={TIPOS[recurso.tipo].capa} alt={recurso.nome} loading="lazy" />
                     <div className="resource-icon">{TIPOS[recurso.tipo].icon}</div>
                     <span className={`resource-status ${status.className}`}>{status.label}</span>
                   </div>

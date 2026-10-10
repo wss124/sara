@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b2149"/>
+      <stop offset="1" stop-color="#050f24"/>
+    </linearGradient>
+  </defs>
+  <rect width="480" height="270" fill="url(#bg)"/>
+  <circle cx="420" cy="40" r="90" fill="#fff" opacity="0.04"/>
+  <circle cx="60" cy="250" r="70" fill="#fff" opacity="0.04"/>
+
+  <!-- Notebook -->
+  <rect x="80" y="80" width="190" height="120" rx="10" fill="#163a6b" stroke="#fff" stroke-width="5" stroke-opacity="0.85"/>
+  <path d="M105 115h80M105 135h120M105 155h60" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M55 210h240l-12 16H67z" fill="#fff" opacity="0.85"/>
+
+  <!-- Projetor -->
+  <rect x="310" y="140" width="120" height="60" rx="12" fill="#fff" opacity="0.85"/>
+  <circle cx="345" cy="170" r="18" fill="#0b2149"/>
+  <circle cx="345" cy="170" r="9" fill="#c9a44c"/>
+  <circle cx="395" cy="160" r="4" fill="#0b2149"/>
+  <circle cx="410" cy="160" r="4" fill="#0b2149"/>
+  <path d="M325 200v14M415 200v14" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+  <path d="M345 152L300 60h90z" fill="#c9a44c" opacity="0.18"/>
+</svg>

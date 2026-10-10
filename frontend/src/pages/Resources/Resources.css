@@ -86,7 +86,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 22px;
+  padding: 0 22px 22px;
+  overflow: hidden;
   border-radius: 20px;
   background: #fff;
   box-shadow: 0 10px 30px rgba(19, 38, 80, 0.08);
@@ -99,25 +100,43 @@
 .resource-card.is-inativo {
   opacity: 0.6;
 }
-.resource-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+
+/* Capa: foto do recurso ou ilustração padrão do tipo */
+.resource-cover {
+  position: relative;
+  margin: 0 -22px 18px;
+  aspect-ratio: 16 / 9;
+  background: #0b2149;
+}
+.resource-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.resource-cover .resource-status {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 .resource-icon {
+  position: absolute;
+  left: 16px;
+  bottom: -18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
+  border: 3px solid #fff;
   border-radius: 14px;
-  font-size: 22px;
+  font-size: 20px;
   color: #fff;
   background: linear-gradient(135deg, #0b2149 0%, #050f24 100%);
 }
 .resource-card h3 {
-  margin: 0 0 6px;
+  margin: 10px 0 6px;
   font-size: 17px;
   font-weight: 700;
   color: #333;
@@ -158,11 +177,11 @@
 }
 .status-livre {
   color: #2f7d55;
-  background: #2f7d551a;
+  background: #e8f3ed;
 }
 .status-ocupado {
   color: #b7862a;
-  background: #b7862a1f;
+  background: #f7efdf;
 }
 .status-inativo {
   color: #888;
