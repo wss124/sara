@@ -42,6 +42,7 @@ model Recurso {
   nome       String
   tipo       TipoRecurso
   descricao  String?
+  foto       String?
   ativo      Boolean     @default(true)
   criadoEm   DateTime    @default(now())
 

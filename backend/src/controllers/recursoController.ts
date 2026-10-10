@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
+import multer from 'multer';
 import { prisma } from '../lib/prisma';
+import { uploadFoto, caminhoPublico, apagarFoto } from '../lib/upload';
 
 type ReqComId = Request<{ id: string }>;
 
@@ -142,9 +144,66 @@ export async function remover(req: ReqComId, res: Response) {
     }
 
     await prisma.recurso.delete({ where: { id } });
+    apagarFoto(recurso.foto);
     return res.status(204).send();
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao remover recurso.' });
+  }
+}
+
+// Recebe a foto (campo multipart "foto") e substitui a anterior, se houver
+export function atualizarFoto(req: ReqComId, res: Response) {
+  uploadFoto(req, res, async (erro) => {
+    if (erro instanceof multer.MulterError && erro.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'A foto deve ter no máximo 2 MB.' });
+    }
+    if (erro) {
+      console.error(erro);
+      return res.status(500).json({ error: 'Erro ao enviar a foto.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'Envie uma imagem JPG, PNG ou WebP.' });
+    }
+
+    const { id } = req.params;
+    const novaFoto = caminhoPublico(req.file.filename);
+
+    try {
+      const existe = await prisma.recurso.findUnique({ where: { id } });
+
+      if (!existe) {
+        apagarFoto(novaFoto);
+        return res.status(404).json({ error: 'Recurso não encontrado.' });
+      }
+
+      const recurso = await prisma.recurso.update({ where: { id }, data: { foto: novaFoto } });
+      apagarFoto(existe.foto);
+      return res.json(recurso);
+    } catch (error) {
+      console.error(error);
+      apagarFoto(novaFoto);
+      return res.status(500).json({ error: 'Erro ao salvar a foto.' });
+    }
+  });
+}
+
+// Remove a foto própria; o recurso volta a usar a capa padrão do tipo
+export async function removerFoto(req: ReqComId, res: Response) {
+  const { id } = req.params;
+
+  try {
+    const existe = await prisma.recurso.findUnique({ where: { id } });
+
+    if (!existe) {
+      return res.status(404).json({ error: 'Recurso não encontrado.' });
+    }
+
+    const recurso = await prisma.recurso.update({ where: { id }, data: { foto: null } });
+    apagarFoto(existe.foto);
+    return res.json(recurso);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao remover a foto.' });
   }
 }

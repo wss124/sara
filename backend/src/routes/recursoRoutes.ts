@@ -1,6 +1,14 @@
 import { Router } from 'express';
 import { autenticar, somenteAdmin } from '../middlewares/auth';
-import { listar, buscarPorId, criar, atualizar, remover } from '../controllers/recursoController';
+import {
+  listar,
+  buscarPorId,
+  criar,
+  atualizar,
+  remover,
+  atualizarFoto,
+  removerFoto,
+} from '../controllers/recursoController';
 
 const router = Router();
 
@@ -12,5 +20,7 @@ router.get('/:id', buscarPorId);
 router.post('/', somenteAdmin, criar);
 router.put('/:id', somenteAdmin, atualizar);
 router.delete('/:id', somenteAdmin, remover);
+router.put('/:id/foto', somenteAdmin, atualizarFoto);
+router.delete('/:id/foto', somenteAdmin, removerFoto);
 
 export { router as recursoRoutes };
