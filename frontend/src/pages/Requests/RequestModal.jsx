@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Modal, Form, Select, DatePicker, TimePicker, Input, message } from 'antd';
-import { CalendarOutlined } from '@ant-design/icons';
+import { Modal, Form, Select, DatePicker, Input, message } from 'antd';
 import dayjs from 'dayjs';
+import TimeSlotGrid from './TimeSlotGrid';
 import { listarRecursos } from '../../services/recursoService';
 import { consultarOcupacao, criarSolicitacao } from '../../services/solicitacaoService';
 
 function RequestModal({ open, recursoInicial, onClose, onCreated }) {
   const [form] = Form.useForm();
   const [recursos, setRecursos] = useState([]);
-  const [reservas, setReservas] = useState(null);
+  // Reservas guardadas junto com a combinação recurso/dia a que pertencem,
+  // para não exibir dados de uma consulta anterior enquanto a nova carrega
+  const [ocupacao, setOcupacao] = useState({ chave: null, lista: null });
   const [salvando, setSalvando] = useState(false);
 
   const recursoId = Form.useWatch('recursoId', form);
   const data = Form.useWatch('data', form);
+  const chave = recursoId && data ? `${recursoId}-${data.valueOf()}` : null;
+  const reservas = chave && ocupacao.chave === chave ? ocupacao.lista : null;
 
   useEffect(() => {
     if (!open) return;
@@ -23,34 +27,34 @@ function RequestModal({ open, recursoInicial, onClose, onCreated }) {
       .catch(() => message.error('Erro ao carregar recursos.'));
   }, [open, recursoInicial, form]);
 
-  // Busca as reservas aprovadas do recurso no dia escolhido
+  // Busca as reservas aprovadas do recurso no dia escolhido. Trocar o recurso
+  // ou a data invalida o horário já marcado na grade.
   useEffect(() => {
-    if (!recursoId || !data) return;
+    form.setFieldValue('horario', undefined);
+    if (!chave) return;
     let cancelado = false;
     consultarOcupacao(
       recursoId,
       data.startOf('day').toISOString(),
       data.endOf('day').toISOString()
     )
-      .then((lista) => !cancelado && setReservas(lista))
-      .catch(() => !cancelado && setReservas(null));
+      .then((lista) => !cancelado && setOcupacao({ chave, lista }))
+      .catch(() => !cancelado && message.error('Erro ao consultar os horários ocupados.'));
     return () => {
       cancelado = true;
     };
-  }, [recursoId, data]);
+  }, [chave, recursoId, data, form]);
 
   const salvar = async () => {
     const valores = await form.validateFields();
-    const [horaInicio, horaFim] = valores.horario;
-    const juntar = (hora) =>
-      valores.data.hour(hora.hour()).minute(hora.minute()).second(0).millisecond(0);
+    const [inicio, fim] = valores.horario;
 
     setSalvando(true);
     try {
       await criarSolicitacao({
         recursoId: valores.recursoId,
-        dataInicio: juntar(horaInicio).toISOString(),
-        dataFim: juntar(horaFim).toISOString(),
+        dataInicio: inicio.toISOString(),
+        dataFim: fim.toISOString(),
         observacao: valores.observacao,
       });
       message.success('Solicitação enviada! Aguarde a aprovação do administrador.');
@@ -62,8 +66,6 @@ function RequestModal({ open, recursoInicial, onClose, onCreated }) {
     }
   };
 
-  const mostrarReservas = recursoId && data && reservas;
-
   return (
     <Modal
       title="Nova solicitação"
@@ -73,6 +75,7 @@ function RequestModal({ open, recursoInicial, onClose, onCreated }) {
       okText="Enviar solicitação"
       cancelText="Cancelar"
       confirmLoading={salvando}
+      width={720}
       forceRender
     >
       <Form form={form} layout="vertical" requiredMark={false}>
@@ -97,40 +100,15 @@ function RequestModal({ open, recursoInicial, onClose, onCreated }) {
           />
         </Form.Item>
 
-        {mostrarReservas && (
-          <div className="request-occupancy">
-            <CalendarOutlined />
-            {reservas.length === 0 ? (
-              <span>Nenhuma reserva aprovada neste dia.</span>
-            ) : (
-              <span>
-                Já reservado:{' '}
-                {reservas
-                  .map((r) => `${dayjs(r.dataInicio).format('HH:mm')}–${dayjs(r.dataFim).format('HH:mm')}`)
-                  .join(', ')}
-              </span>
-            )}
-          </div>
-        )}
-
         <Form.Item
           name="horario"
           label="Horário"
-          rules={[
-            { required: true, message: 'Informe o horário de início e fim.' },
-            {
-              validator: (_, valor) =>
-                !valor || valor[1].isAfter(valor[0])
-                  ? Promise.resolve()
-                  : Promise.reject(new Error('O fim deve ser depois do início.')),
-            },
-          ]}
+          rules={[{ required: true, message: 'Escolha o horário na grade.' }]}
         >
-          <TimePicker.RangePicker
-            format="HH:mm"
-            minuteStep={15}
-            style={{ width: '100%' }}
-            placeholder={['Início', 'Fim']}
+          <TimeSlotGrid
+            key={chave}
+            data={chave ? data : null}
+            reservas={reservas}
           />
         </Form.Item>
 
