@@ -14,6 +14,7 @@ import {
   Empty,
   Spin,
   Tooltip,
+  Upload,
   message,
 } from 'antd';
 import {
@@ -24,12 +25,16 @@ import {
   EditOutlined,
   DeleteOutlined,
   CalendarOutlined,
+  CameraOutlined,
 } from '@ant-design/icons';
 import {
   listarRecursos,
   criarRecurso,
   atualizarRecurso,
   removerRecurso,
+  enviarFotoRecurso,
+  removerFotoRecurso,
+  urlFotoRecurso,
 } from '../../services/recursoService';
 import capaSala from '../../assets/recursos/sala.svg';
 import capaEquipamento from '../../assets/recursos/equipamento.svg';
@@ -39,6 +44,14 @@ const TIPOS = {
   SALA: { label: 'Sala', icon: <BankOutlined />, capa: capaSala },
   EQUIPAMENTO: { label: 'Equipamento', icon: <LaptopOutlined />, capa: capaEquipamento },
 };
+
+const FORMATOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
+const TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024; // 2 MB, mesmo limite do backend
+
+// Foto enviada pelo admin ou, na falta dela, a capa padrão do tipo
+function capaDoRecurso(recurso) {
+  return urlFotoRecurso(recurso.foto) || TIPOS[recurso.tipo].capa;
+}
 
 function getUser() {
   try {
@@ -67,6 +80,21 @@ function Resources() {
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [form] = Form.useForm();
+  const tipoNoForm = Form.useWatch('tipo', form);
+
+  // Foto escolhida no modal (ainda não enviada) e pedido de remoção da atual
+  const [novaFoto, setNovaFoto] = useState(null);
+  const [removerFoto, setRemoverFoto] = useState(false);
+
+  const previewNovaFoto = useMemo(
+    () => (novaFoto ? URL.createObjectURL(novaFoto) : null),
+    [novaFoto]
+  );
+  useEffect(() => () => previewNovaFoto && URL.revokeObjectURL(previewNovaFoto), [previewNovaFoto]);
+
+  const fotoAtual = editando?.foto && !removerFoto ? urlFotoRecurso(editando.foto) : null;
+  const preview = previewNovaFoto || fotoAtual || TIPOS[tipoNoForm || 'SALA'].capa;
+  const temFotoPropria = Boolean(previewNovaFoto || fotoAtual);
 
   const carregar = () =>
     listarRecursos()
@@ -101,6 +129,8 @@ function Resources() {
 
   const abrirModal = (recurso = null) => {
     setEditando(recurso);
+    setNovaFoto(null);
+    setRemoverFoto(false);
     form.setFieldsValue(
       recurso
         ? { nome: recurso.nome, tipo: recurso.tipo, descricao: recurso.descricao }
@@ -113,13 +143,20 @@ function Resources() {
     const valores = await form.validateFields();
     setSalvando(true);
     try {
-      if (editando) {
-        await atualizarRecurso(editando.id, valores);
-        message.success('Recurso atualizado.');
-      } else {
-        await criarRecurso(valores);
-        message.success('Recurso cadastrado.');
+      const recurso = editando
+        ? await atualizarRecurso(editando.id, valores)
+        : await criarRecurso(valores);
+
+      // Se só o envio da foto falhar, salvar de novo edita em vez de duplicar
+      if (!editando) setEditando(recurso);
+
+      if (novaFoto) {
+        await enviarFotoRecurso(recurso.id, novaFoto);
+      } else if (removerFoto && editando?.foto) {
+        await removerFotoRecurso(recurso.id);
       }
+
+      message.success(editando ? 'Recurso atualizado.' : 'Recurso cadastrado.');
       setModalAberto(false);
       carregar();
     } catch (error) {
@@ -127,6 +164,24 @@ function Resources() {
     } finally {
       setSalvando(false);
     }
+  };
+
+  // Valida a imagem no navegador e guarda para enviar ao salvar
+  const escolherFoto = (arquivo) => {
+    if (!FORMATOS_FOTO.includes(arquivo.type)) {
+      message.error('Escolha uma imagem JPG, PNG ou WebP.');
+    } else if (arquivo.size > TAMANHO_MAXIMO_FOTO) {
+      message.error('A foto deve ter no máximo 2 MB.');
+    } else {
+      setNovaFoto(arquivo);
+      setRemoverFoto(false);
+    }
+    return Upload.LIST_IGNORE;
+  };
+
+  const tirarFoto = () => {
+    setNovaFoto(null);
+    setRemoverFoto(true);
   };
 
   const alternarAtivo = async (recurso) => {
@@ -222,7 +277,7 @@ function Resources() {
               <Col xs={24} sm={12} xl={8} key={recurso.id}>
                 <div className={`resource-card ${recurso.ativo ? '' : 'is-inativo'}`}>
                   <div className="resource-cover">
-                    <img src={TIPOS[recurso.tipo].capa} alt={recurso.nome} loading="lazy" />
+                    <img src={capaDoRecurso(recurso)} alt={recurso.nome} loading="lazy" />
                     <div className="resource-icon">{TIPOS[recurso.tipo].icon}</div>
                     <span className={`resource-status ${status.className}`}>{status.label}</span>
                   </div>
@@ -296,6 +351,28 @@ function Resources() {
         forceRender
       >
         <Form form={form} layout="vertical" requiredMark={false}>
+          <Form.Item label="Foto">
+            <div className="resource-photo-field">
+              <img src={preview} alt="Prévia da foto do recurso" />
+              <div className="resource-photo-actions">
+                <Upload accept={FORMATOS_FOTO.join(',')} showUploadList={false} beforeUpload={escolherFoto}>
+                  <Button icon={<CameraOutlined />}>
+                    {temFotoPropria ? 'Trocar foto' : 'Escolher foto'}
+                  </Button>
+                </Upload>
+                {temFotoPropria && (
+                  <Button type="text" danger onClick={tirarFoto}>
+                    Remover foto
+                  </Button>
+                )}
+                <span className="resource-photo-hint">
+                  {temFotoPropria
+                    ? 'JPG, PNG ou WebP, até 2 MB.'
+                    : 'Sem foto, o recurso usa a imagem padrão do tipo.'}
+                </span>
+              </div>
+            </div>
+          </Form.Item>
           <Form.Item
             name="nome"
             label="Nome"

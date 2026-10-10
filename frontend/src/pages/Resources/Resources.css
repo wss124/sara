@@ -192,3 +192,28 @@
   border-radius: 999px !important;
   font-weight: 600;
 }
+
+/* ---------- Foto no modal ---------- */
+.resource-photo-field {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.resource-photo-field img {
+  width: 160px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #0b2149;
+}
+.resource-photo-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.resource-photo-hint {
+  font-size: 12px;
+  color: #888;
+}

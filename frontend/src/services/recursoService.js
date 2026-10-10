@@ -18,3 +18,20 @@ export async function atualizarRecurso(id, dados) {
 export async function removerRecurso(id) {
   await api.delete(`/recursos/${id}`);
 }
+
+export async function enviarFotoRecurso(id, arquivo) {
+  const dados = new FormData();
+  dados.append('foto', arquivo);
+  const response = await api.put(`/recursos/${id}/foto`, dados);
+  return response.data;
+}
+
+export async function removerFotoRecurso(id) {
+  const response = await api.delete(`/recursos/${id}/foto`);
+  return response.data;
+}
+
+// O backend devolve um caminho relativo (/uploads/...); monta a URL completa
+export function urlFotoRecurso(foto) {
+  return foto ? `${api.defaults.baseURL}${foto}` : null;
+}

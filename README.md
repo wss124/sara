@@ -79,6 +79,7 @@ backend/
   src/controllers/       regras de negócio
   src/middlewares/       autenticação e permissão de admin
   src/scripts/           seed de demonstração e criação de admin
+  uploads/               fotos dos recursos enviadas pelo admin (fora do git)
 frontend/
   src/pages/             telas (Login, Cadastro, Home, Recursos, Solicitações, Aprovações, Usuários)
   src/services/          chamadas à API
