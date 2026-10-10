@@ -9,6 +9,7 @@ const incluirDetalhes = {
   recurso: { select: { id: true, nome: true, tipo: true } },
   usuario: { select: { id: true, nome: true, email: true, perfil: true } },
   aprovadoPor: { select: { id: true, nome: true } },
+  lancadoPor: { select: { id: true, nome: true } },
 } as const;
 
 function parseData(valor: unknown) {
@@ -30,31 +31,57 @@ function buscarConflito(recursoId: string, inicio: Date, fim: Date, ignorarId?: 
   });
 }
 
-export async function criar(req: Request, res: Response) {
-  const { recursoId, dataInicio, dataFim, observacao } = req.body;
+// Validações comuns à solicitação do usuário e à reserva lançada pelo admin.
+// Devolve o período já convertido ou a mensagem de erro com o status HTTP.
+type ResultadoValidacao =
+  | { ok: true; inicio: Date; fim: Date }
+  | { ok: false; status: number; error: string };
+
+async function validarPedido(
+  recursoId: unknown,
+  dataInicio: unknown,
+  dataFim: unknown
+): Promise<ResultadoValidacao> {
   const inicio = parseData(dataInicio);
   const fim = parseData(dataFim);
 
   if (!recursoId || !inicio || !fim) {
-    return res.status(400).json({ error: 'Informe o recurso, a data de início e a data de fim.' });
+    return { ok: false, status: 400, error: 'Informe o recurso, a data de início e a data de fim.' };
   }
   if (fim <= inicio) {
-    return res.status(400).json({ error: 'O horário de fim deve ser depois do início.' });
+    return { ok: false, status: 400, error: 'O horário de fim deve ser depois do início.' };
   }
   if (inicio < new Date()) {
-    return res.status(400).json({ error: 'Não é possível solicitar um horário no passado.' });
+    return { ok: false, status: 400, error: 'Não é possível reservar um horário no passado.' };
+  }
+
+  const recurso = await prisma.recurso.findUnique({ where: { id: String(recursoId) } });
+  if (!recurso || !recurso.ativo) {
+    return { ok: false, status: 404, error: 'Recurso não encontrado ou inativo.' };
+  }
+  if (await buscarConflito(recurso.id, inicio, fim)) {
+    return { ok: false, status: 409, error: 'O recurso já está reservado nesse horário.' };
+  }
+
+  return { ok: true, inicio, fim };
+}
+
+export async function criar(req: Request, res: Response) {
+  const { recursoId, dataInicio, dataFim, observacao } = req.body;
+
+  // O admin não pede para si mesmo: ele lança reservas já aprovadas
+  if (req.usuario?.perfil === 'ADMIN') {
+    return res.status(403).json({
+      error: 'Administradores registram reservas pela tela de Aprovações.',
+    });
   }
 
   try {
-    const recurso = await prisma.recurso.findUnique({ where: { id: recursoId } });
-
-    if (!recurso || !recurso.ativo) {
-      return res.status(404).json({ error: 'Recurso não encontrado ou inativo.' });
+    const validacao = await validarPedido(recursoId, dataInicio, dataFim);
+    if (!validacao.ok) {
+      return res.status(validacao.status).json({ error: validacao.error });
     }
-
-    if (await buscarConflito(recursoId, inicio, fim)) {
-      return res.status(409).json({ error: 'O recurso já está reservado nesse horário.' });
-    }
+    const { inicio, fim } = validacao;
 
     const solicitacao = await prisma.solicitacao.create({
       data: {
@@ -71,6 +98,88 @@ export async function criar(req: Request, res: Response) {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao criar solicitação.' });
+  }
+}
+
+// Admin: registra uma reserva já aprovada, em nome de um usuário cadastrado
+// ou como uso institucional (prova, reunião, evento).
+export async function reservar(req: Request, res: Response) {
+  const { recursoId, dataInicio, dataFim, observacao, usuarioId, institucional } = req.body;
+  const adminId = req.usuario!.id;
+
+  if (institucional && !observacao?.trim()) {
+    return res.status(400).json({ error: 'Descreva a finalidade do uso institucional.' });
+  }
+  if (!institucional && !usuarioId) {
+    return res.status(400).json({ error: 'Informe para quem é a reserva.' });
+  }
+
+  try {
+    if (!institucional) {
+      const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
+      if (!usuario || usuario.perfil === 'ADMIN') {
+        return res.status(400).json({ error: 'Usuário inválido para a reserva.' });
+      }
+    }
+
+    const validacao = await validarPedido(recursoId, dataInicio, dataFim);
+    if (!validacao.ok) {
+      return res.status(validacao.status).json({ error: validacao.error });
+    }
+    const { inicio, fim } = validacao;
+
+    const reserva = await prisma.solicitacao.create({
+      data: {
+        recursoId,
+        usuarioId: institucional ? adminId : usuarioId,
+        dataInicio: inicio,
+        dataFim: fim,
+        observacao: observacao?.trim() || null,
+        status: 'APROVADA',
+        institucional: Boolean(institucional),
+        lancadoPorId: adminId,
+        aprovadoPorId: adminId,
+      },
+      include: incluirDetalhes,
+    });
+
+    // Pedidos pendentes no mesmo horário agora vão colidir na aprovação;
+    // o front avisa o admin para recusá-los.
+    const pendentesConflitantes = await prisma.solicitacao.count({
+      where: {
+        recursoId,
+        status: 'PENDENTE',
+        dataInicio: { lt: fim },
+        dataFim: { gt: inicio },
+      },
+    });
+
+    return res.status(201).json({ ...reserva, pendentesConflitantes });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao registrar reserva.' });
+  }
+}
+
+// Admin: desfaz uma reserva lançada por ele (ou outro admin) que ainda não terminou
+export async function cancelarReserva(req: ReqComId, res: Response) {
+  const { id } = req.params;
+
+  try {
+    const reserva = await prisma.solicitacao.findUnique({ where: { id } });
+
+    if (!reserva || !reserva.lancadoPorId) {
+      return res.status(404).json({ error: 'Reserva não encontrada.' });
+    }
+    if (reserva.dataFim < new Date()) {
+      return res.status(409).json({ error: 'Esta reserva já foi encerrada.' });
+    }
+
+    await prisma.solicitacao.delete({ where: { id } });
+    return res.status(204).send();
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao cancelar reserva.' });
   }
 }
 

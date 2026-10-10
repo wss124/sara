@@ -8,6 +8,8 @@ import {
   aprovar,
   recusar,
   cancelar,
+  reservar,
+  cancelarReserva,
 } from '../controllers/solicitacaoController';
 
 const router = Router();
@@ -24,5 +26,7 @@ router.delete('/:id', cancelar);
 router.get('/', somenteAdmin, listarTodas);
 router.patch('/:id/aprovar', somenteAdmin, aprovar);
 router.patch('/:id/recusar', somenteAdmin, recusar);
+router.post('/reservas', somenteAdmin, reservar);
+router.delete('/reservas/:id', somenteAdmin, cancelarReserva);
 
 export { router as solicitacaoRoutes };
