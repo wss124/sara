@@ -37,11 +37,10 @@ function UserLayout() {
       icon: <AppstoreOutlined />,
       label: 'Recursos',
     },
-    {
-      key: '/requests',
-      icon: <FileTextOutlined />,
-      label: 'Minhas solicitações',
-    },
+    // O admin não faz solicitações: ele lança reservas pela tela de Aprovações
+    ...(user?.perfil !== 'ADMIN'
+      ? [{ key: '/requests', icon: <FileTextOutlined />, label: 'Minhas solicitações' }]
+      : []),
     ...(user?.perfil === 'ADMIN'
       ? [
           { key: '/approvals', icon: <AuditOutlined />, label: 'Aprovações' },

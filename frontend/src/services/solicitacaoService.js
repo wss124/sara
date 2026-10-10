@@ -36,3 +36,12 @@ export async function recusarSolicitacao(id) {
   const response = await api.patch(`/solicitacoes/${id}/recusar`);
   return response.data;
 }
+
+export async function lancarReserva(dados) {
+  const response = await api.post('/solicitacoes/reservas', dados);
+  return response.data;
+}
+
+export async function cancelarReserva(id) {
+  await api.delete(`/solicitacoes/reservas/${id}`);
+}

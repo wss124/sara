@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Button, Segmented, Popconfirm, Empty, Spin, message } from 'antd';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { CheckOutlined, CloseOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
   listarSolicitacoes,
   aprovarSolicitacao,
   recusarSolicitacao,
+  cancelarReserva,
 } from '../../services/solicitacaoService';
+import RequestModal from '../Requests/RequestModal';
 import { formatarPeriodo } from '../../utils/format';
 import { STATUS, ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
@@ -17,6 +20,7 @@ function Approvals() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('PENDENTE');
   const [processando, setProcessando] = useState(null);
+  const [modalAberto, setModalAberto] = useState(false);
 
   const carregar = (filtro) =>
     listarSolicitacoes(filtro === 'TODAS' ? undefined : filtro)
@@ -48,13 +52,44 @@ function Approvals() {
     }
   };
 
+  const desfazerReserva = async (id) => {
+    setProcessando(id);
+    try {
+      await cancelarReserva(id);
+      message.success('Reserva cancelada.');
+      carregar(status);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao cancelar reserva.');
+    } finally {
+      setProcessando(null);
+    }
+  };
+
+  // Quem pediu ou, nas reservas lançadas pelo admin, para quem foi registrada
+  const descreverOrigem = (s) => {
+    if (s.institucional) return `Uso institucional · registrado por ${s.lancadoPor?.nome}`;
+    const usuario = `${s.usuario.nome} (${PERFIS[s.usuario.perfil]}) · ${s.usuario.email}`;
+    return s.lancadoPor
+      ? `Reservado para ${usuario} · registrado por ${s.lancadoPor.nome}`
+      : `Solicitado por ${usuario}`;
+  };
+
   return (
     <div className="page">
       <header className="page-header">
         <div>
           <h1>Aprovações</h1>
-          <p>Analise as solicitações de reserva enviadas pela comunidade acadêmica.</p>
+          <p>Analise as solicitações da comunidade acadêmica ou registre reservas diretamente.</p>
         </div>
+        <Button
+          type="primary"
+          size="large"
+          icon={<PlusOutlined />}
+          className="page-primary-button"
+          onClick={() => setModalAberto(true)}
+        >
+          Nova reserva
+        </Button>
       </header>
 
       <Segmented
@@ -96,11 +131,9 @@ function Approvals() {
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
                 <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
-                <span className="request-meta">
-                  Solicitado por {s.usuario.nome} ({PERFIS[s.usuario.perfil]}) · {s.usuario.email}
-                </span>
+                <span className="request-meta">{descreverOrigem(s)}</span>
                 {s.observacao && <p>{s.observacao}</p>}
-                {s.aprovadoPor && s.status !== 'PENDENTE' && (
+                {s.aprovadoPor && s.status !== 'PENDENTE' && !s.lancadoPor && (
                   <span className="request-meta">
                     {s.status === 'APROVADA' ? 'Aprovada' : 'Recusada'} por {s.aprovadoPor.nome}
                   </span>
@@ -132,15 +165,49 @@ function Approvals() {
                     </Button>
                   </div>
                 ) : (
-                  <span className={`request-status ${STATUS[s.status].className}`}>
-                    {STATUS[s.status].label}
-                  </span>
+                  <>
+                    <span className={`request-status ${STATUS[s.status].className}`}>
+                      {s.lancadoPor ? 'Reserva do admin' : STATUS[s.status].label}
+                    </span>
+                    {s.lancadoPor && dayjs().isBefore(s.dataFim) && (
+                      <Popconfirm
+                        title="Cancelar esta reserva?"
+                        description="O horário volta a ficar livre."
+                        okText="Cancelar reserva"
+                        cancelText="Voltar"
+                        okButtonProps={{ danger: true }}
+                        onConfirm={() => desfazerReserva(s.id)}
+                      >
+                        <Button
+                          type="text"
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          loading={processando === s.id}
+                        >
+                          Cancelar
+                        </Button>
+                      </Popconfirm>
+                    )}
+                  </>
                 )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <RequestModal
+        admin
+        open={modalAberto}
+        onClose={() => setModalAberto(false)}
+        onCreated={() => {
+          setModalAberto(false);
+          setLoading(true);
+          setStatus('APROVADA');
+          carregar('APROVADA');
+        }}
+      />
     </div>
   );
 }

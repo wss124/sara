@@ -18,3 +18,11 @@ export function getUsuarioLogado() {
     return null;
   }
 }
+
+// Quem está usando a reserva: o usuário ou, no uso institucional lançado
+// pelo admin, a finalidade descrita na observação
+export function responsavelPela(reserva) {
+  return reserva.institucional
+    ? `Uso institucional${reserva.observacao ? ` · ${reserva.observacao}` : ''}`
+    : reserva.usuario.nome;
+}

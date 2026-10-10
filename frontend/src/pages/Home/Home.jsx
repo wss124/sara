@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { carregarDashboard } from '../../services/dashboardService';
-import { getUsuarioLogado } from '../../utils/format';
+import { getUsuarioLogado, responsavelPela } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
 import { capaDoRecurso } from '../../utils/recursoFoto';
 import './Home.css';
@@ -89,13 +89,21 @@ function Home() {
       color: '#14305c',
       to: '/resources',
     },
-    {
-      title: 'Minhas reservas aprovadas',
-      value: minhas.aprovadas,
-      icon: <CheckCircleOutlined />,
-      color: '#2f7d55',
-      to: '/requests',
-    },
+    isAdmin
+      ? {
+          title: 'Reservas de hoje',
+          value: reservasHoje.length,
+          icon: <CheckCircleOutlined />,
+          color: '#2f7d55',
+          to: '/approvals',
+        }
+      : {
+          title: 'Minhas reservas aprovadas',
+          value: minhas.aprovadas,
+          icon: <CheckCircleOutlined />,
+          color: '#2f7d55',
+          to: '/requests',
+        },
     isAdmin
       ? {
           title: 'Solicitações para aprovar',
@@ -203,7 +211,7 @@ function Home() {
                         : 'Disponível agora'}
                     </span>
                     <span className="occupancy-detail">
-                      {r.ocupadoAgora ? r.atual.usuario.nome : descreverProxima(r.proxima)}
+                      {r.ocupadoAgora ? responsavelPela(r.atual) : descreverProxima(r.proxima)}
                     </span>
                   </div>
                 ))}
@@ -249,7 +257,7 @@ function Home() {
                         <span className="agenda-resource">
                           {ICONES_TIPO[reserva.recurso.tipo]} {reserva.recurso.nome}
                         </span>
-                        <span className="agenda-user">{reserva.usuario.nome}</span>
+                        <span className="agenda-user">{responsavelPela(reserva)}</span>
                       </div>
                     </li>
                   );

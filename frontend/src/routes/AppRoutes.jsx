@@ -10,6 +10,7 @@ import Users from '../pages/Users/Users';
 import UserLayout from '../layouts/UserLayout/UserLayout';
 import PrivateRoute from './PrivateRoute';
 import AdminRoute from './AdminRoute';
+import UserRoute from './UserRoute';
 
 function AppRoutes() {
   return (
@@ -28,7 +29,14 @@ function AppRoutes() {
         >
           <Route path="/home" element={<Home />} />
           <Route path="/resources" element={<Resources />} />
-          <Route path="/requests" element={<Requests />} />
+          <Route
+            path="/requests"
+            element={
+              <UserRoute>
+                <Requests />
+              </UserRoute>
+            }
+          />
           <Route
             path="/approvals"
             element={
