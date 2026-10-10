@@ -36,22 +36,16 @@ import {
   removerFotoRecurso,
   urlFotoRecurso,
 } from '../../services/recursoService';
-import capaSala from '../../assets/recursos/sala.svg';
-import capaEquipamento from '../../assets/recursos/equipamento.svg';
+import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
 import './Resources.css';
 
 const TIPOS = {
-  SALA: { label: 'Sala', icon: <BankOutlined />, capa: capaSala },
-  EQUIPAMENTO: { label: 'Equipamento', icon: <LaptopOutlined />, capa: capaEquipamento },
+  SALA: { label: 'Sala', icon: <BankOutlined /> },
+  EQUIPAMENTO: { label: 'Equipamento', icon: <LaptopOutlined /> },
 };
 
 const FORMATOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
 const TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024; // 2 MB, mesmo limite do backend
-
-// Foto enviada pelo admin ou, na falta dela, a capa padrão do tipo
-function capaDoRecurso(recurso) {
-  return urlFotoRecurso(recurso.foto) || TIPOS[recurso.tipo].capa;
-}
 
 function getUser() {
   try {
@@ -93,7 +87,7 @@ function Resources() {
   useEffect(() => () => previewNovaFoto && URL.revokeObjectURL(previewNovaFoto), [previewNovaFoto]);
 
   const fotoAtual = editando?.foto && !removerFoto ? urlFotoRecurso(editando.foto) : null;
-  const preview = previewNovaFoto || fotoAtual || TIPOS[tipoNoForm || 'SALA'].capa;
+  const preview = previewNovaFoto || fotoAtual || CAPAS_PADRAO[tipoNoForm || 'SALA'];
   const temFotoPropria = Boolean(previewNovaFoto || fotoAtual);
 
   const carregar = () =>

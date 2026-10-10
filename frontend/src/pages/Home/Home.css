@@ -225,8 +225,17 @@
 .occupancy-top {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
+}
+.occupancy-thumb,
+.agenda-thumb {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #0b2149;
 }
 .occupancy-icon {
   color: #2b5797;
@@ -263,12 +272,18 @@
 }
 .agenda-item {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
   padding: 10px 14px;
   border-radius: 12px;
   border-left: 4px solid #2b5797;
   background: #f5f7fb;
+}
+.agenda-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .agenda-item.is-now {
   border-color: #b7862a;

@@ -20,6 +20,7 @@ export async function resumo(req: Request, res: Response) {
           id: true,
           nome: true,
           tipo: true,
+          foto: true,
           solicitacoes: {
             where: { status: 'APROVADA', dataFim: { gt: agora } },
             select: {
@@ -50,7 +51,7 @@ export async function resumo(req: Request, res: Response) {
           id: true,
           dataInicio: true,
           dataFim: true,
-          recurso: { select: { id: true, nome: true, tipo: true } },
+          recurso: { select: { id: true, nome: true, tipo: true, foto: true } },
           usuario: { select: { nome: true } },
         },
         orderBy: { dataInicio: 'asc' },

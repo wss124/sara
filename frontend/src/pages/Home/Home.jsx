@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import { carregarDashboard } from '../../services/dashboardService';
 import { getUsuarioLogado } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
+import { capaDoRecurso } from '../../utils/recursoFoto';
 import './Home.css';
 
 // Intervalo de atualização automática do painel de ocupação
@@ -191,8 +192,10 @@ function Home() {
                     className={`occupancy-item ${r.ocupadoAgora ? 'is-busy' : 'is-free'}`}
                   >
                     <div className="occupancy-top">
-                      <span className="occupancy-icon">{ICONES_TIPO[r.tipo]}</span>
-                      <span className="occupancy-name">{r.nome}</span>
+                      <img className="occupancy-thumb" src={capaDoRecurso(r)} alt="" loading="lazy" />
+                      <span className="occupancy-name">
+                        <span className="occupancy-icon">{ICONES_TIPO[r.tipo]}</span> {r.nome}
+                      </span>
                     </div>
                     <span className="occupancy-state">
                       {r.ocupadoAgora
@@ -233,13 +236,21 @@ function Home() {
                         encerrada ? ' is-past' : ''
                       }`}
                     >
-                      <span className="agenda-time">
-                        {hora(reserva.dataInicio)} – {hora(reserva.dataFim)}
-                      </span>
-                      <span className="agenda-resource">
-                        {ICONES_TIPO[reserva.recurso.tipo]} {reserva.recurso.nome}
-                      </span>
-                      <span className="agenda-user">{reserva.usuario.nome}</span>
+                      <img
+                        className="agenda-thumb"
+                        src={capaDoRecurso(reserva.recurso)}
+                        alt=""
+                        loading="lazy"
+                      />
+                      <div className="agenda-info">
+                        <span className="agenda-time">
+                          {hora(reserva.dataInicio)} – {hora(reserva.dataFim)}
+                        </span>
+                        <span className="agenda-resource">
+                          {ICONES_TIPO[reserva.recurso.tipo]} {reserva.recurso.nome}
+                        </span>
+                        <span className="agenda-user">{reserva.usuario.nome}</span>
+                      </div>
                     </li>
                   );
                 })}
