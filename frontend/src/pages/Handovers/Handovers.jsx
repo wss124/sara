@@ -7,8 +7,9 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { carregarMovimentacoes, registrarRetirada } from '../../services/solicitacaoService';
+import { carregarMovimentacoes } from '../../services/solicitacaoService';
 import DevolucaoModal from './DevolucaoModal';
+import RetiradaModal from './RetiradaModal';
 import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
 import { formatarPeriodo, responsavelPela, descreverAcessorios } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
@@ -53,7 +54,7 @@ function Secao({ titulo, descricao, vazio, itens, renderAcoes, renderDetalhe }) 
                 )}
                 {s.acessorios?.length > 0 && (
                   <span className="request-acessorios">
-                    Acompanha: {descreverAcessorios(s.acessorios)}
+                    Acompanha: {descreverAcessorios(s.acessorios, Boolean(s.retiradoEm))}
                   </span>
                 )}
                 {renderDetalhe?.(s)}
@@ -71,7 +72,7 @@ function Secao({ titulo, descricao, vazio, itens, renderAcoes, renderDetalhe }) 
 function Handovers() {
   const [dados, setDados] = useState(null);
   const [atualizando, setAtualizando] = useState(false);
-  const [processando, setProcessando] = useState(null);
+  const [retirando, setRetirando] = useState(null);
   const [devolvendo, setDevolvendo] = useState(null);
   const [afetadas, setAfetadas] = useState(null);
 
@@ -90,19 +91,6 @@ function Handovers() {
     const timer = setInterval(carregar, INTERVALO_MS);
     return () => clearInterval(timer);
   }, []);
-
-  const executar = async (id, acao, sucesso) => {
-    setProcessando(id);
-    try {
-      await acao();
-      message.success(sucesso);
-      carregar();
-    } catch (error) {
-      message.error(error.response?.data?.error || 'Erro ao registrar.');
-    } finally {
-      setProcessando(null);
-    }
-  };
 
   if (!dados) {
     return (
@@ -130,20 +118,16 @@ function Handovers() {
         vazio="Nenhuma retirada pendente hoje."
         itens={dados.aguardandoRetirada}
         renderAcoes={(s) => {
-          const liberada = dayjs().isAfter(
-            dayjs(s.dataInicio).subtract(ANTECEDENCIA_RETIRADA_MIN, 'minute')
-          );
+          const liberadaEm = dayjs(s.dataInicio).subtract(ANTECEDENCIA_RETIRADA_MIN, 'minute');
+          const liberada = dayjs().isAfter(liberadaEm);
           return (
-            <Tooltip title={liberada ? '' : `Liberada a partir de ${hora(dayjs(s.dataInicio).subtract(ANTECEDENCIA_RETIRADA_MIN, 'minute'))}`}>
+            <Tooltip title={liberada ? '' : `Liberada a partir de ${hora(liberadaEm)}`}>
               <Button
                 type="primary"
                 icon={<ExportOutlined />}
                 className="page-primary-button"
                 disabled={!liberada}
-                loading={processando === s.id}
-                onClick={() =>
-                  executar(s.id, () => registrarRetirada(s.id), `${s.recurso.nome} entregue.`)
-                }
+                onClick={() => setRetirando(s)}
               >
                 Registrar retirada
               </Button>
@@ -158,10 +142,15 @@ function Handovers() {
         vazio="Nenhum recurso fora no momento."
         itens={dados.emUso}
         renderDetalhe={(s) => (
-          <span className="request-meta">
-            Retirado às {hora(s.retiradoEm)}
-            {s.retiradaRegistradaPor && ` por ${s.retiradaRegistradaPor.nome}`}
-          </span>
+          <>
+            <span className="request-meta">
+              Retirado às {hora(s.retiradoEm)}
+              {s.retiradaRegistradaPor && ` por ${s.retiradaRegistradaPor.nome}`}
+            </span>
+            {s.observacaoRetirada && (
+              <span className="request-meta">Na entrega: {s.observacaoRetirada}</span>
+            )}
+          </>
         )}
         renderAcoes={(s) => (
           <Button icon={<ImportOutlined />} onClick={() => setDevolvendo(s)}>
@@ -191,6 +180,16 @@ function Handovers() {
         )}
       />
 
+      {retirando && (
+        <RetiradaModal
+          reserva={retirando}
+          onClose={() => setRetirando(null)}
+          onDone={() => {
+            setRetirando(null);
+            carregar();
+          }}
+        />
+      )}
       {devolvendo && (
         <DevolucaoModal
           reserva={devolvendo}

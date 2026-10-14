@@ -19,10 +19,16 @@ export function getUsuarioLogado() {
   }
 }
 
-// Ex.: "Extensão, Cabo HDMI (2)" a partir dos acessórios de uma solicitação
-export function descreverAcessorios(itens = []) {
+// Ex.: "Extensão, Cabo HDMI (2)" a partir dos acessórios de uma solicitação.
+// Depois da retirada, indica o que não foi entregue ou não voltou.
+export function descreverAcessorios(itens = [], retirado = false) {
   return itens
-    .map((i) => (i.quantidade > 1 ? `${i.acessorio.nome} (${i.quantidade})` : i.acessorio.nome))
+    .map((i) => {
+      let texto = i.quantidade > 1 ? `${i.acessorio.nome} (${i.quantidade})` : i.acessorio.nome;
+      if (retirado && !i.entregue) texto += ' [não entregue]';
+      if (i.devolvido === false) texto += ' [não devolvido]';
+      return texto;
+    })
     .join(', ');
 }
 

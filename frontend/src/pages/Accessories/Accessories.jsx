@@ -18,6 +18,7 @@ import {
   criarAcessorio,
   atualizarAcessorio,
   removerAcessorio,
+  regularizarAcessorio,
 } from '../../services/acessorioService';
 import '../Requests/Requests.css';
 
@@ -109,7 +110,33 @@ function Accessories() {
           <span className="request-meta">Não informado</span>
         ),
     },
-    { title: 'Quantidade', dataIndex: 'quantidade', width: 110, align: 'center' },
+    {
+      title: 'Quantidade',
+      dataIndex: 'quantidade',
+      width: 150,
+      render: (quantidade, a) => (
+        <div>
+          {quantidade}
+          {a.emFalta > 0 && (
+            <div>
+              <Tag color="red">{a.emFalta} em falta</Tag>
+              <Popconfirm
+                title="O item foi encontrado ou reposto?"
+                okText="Sim, regularizar"
+                cancelText="Voltar"
+                onConfirm={() =>
+                  executar(() => regularizarAcessorio(a.id), 'Estoque regularizado.')
+                }
+              >
+                <Button type="link" size="small">
+                  Regularizar
+                </Button>
+              </Popconfirm>
+            </div>
+          )}
+        </div>
+      ),
+    },
     {
       title: 'Acompanha',
       dataIndex: 'recursos',

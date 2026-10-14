@@ -9,9 +9,9 @@ export interface ItemPedido {
   quantidade: number;
 }
 
-// Unidades livres de cada acessório num período: o total cadastrado menos o
-// que já está comprometido com reservas ativas (aprovadas ou em uso) que se
-// sobrepõem ao período.
+// Unidades livres de cada acessório num período: o total cadastrado menos as
+// unidades em falta e o que já está comprometido com reservas ativas
+// (aprovadas ou em uso) que se sobrepõem ao período.
 export async function unidadesLivres(
   db: Db,
   acessorioIds: string[],
@@ -40,7 +40,10 @@ export async function unidadesLivres(
 
   const usados = new Map(comprometidos.map((c) => [c.acessorioId, c._sum.quantidade ?? 0]));
   return new Map(
-    acessorios.map((a) => [a.id, { nome: a.nome, livres: a.quantidade - (usados.get(a.id) ?? 0) }])
+    acessorios.map((a) => [
+      a.id,
+      { nome: a.nome, livres: a.quantidade - a.emFalta - (usados.get(a.id) ?? 0) },
+    ])
   );
 }
 

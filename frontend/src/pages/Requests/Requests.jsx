@@ -123,7 +123,7 @@ function Requests() {
                 )}
                 {s.acessorios?.length > 0 && (
                   <span className="request-acessorios">
-                    Acompanha: {descreverAcessorios(s.acessorios)}
+                    Acompanha: {descreverAcessorios(s.acessorios, Boolean(s.retiradoEm))}
                   </span>
                 )}
                 {s.observacao && <p>{s.observacao}</p>}

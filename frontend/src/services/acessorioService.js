@@ -15,6 +15,11 @@ export async function atualizarAcessorio(id, dados) {
   return response.data;
 }
 
+export async function regularizarAcessorio(id) {
+  const response = await api.patch(`/acessorios/${id}/regularizar`);
+  return response.data;
+}
+
 export async function removerAcessorio(id) {
   await api.delete(`/acessorios/${id}`);
 }

@@ -124,6 +124,35 @@ export async function remover(req: ReqComId, res: Response) {
   }
 }
 
+// Admin: unidades que estavam em falta foram encontradas ou repostas.
+// Corpo opcional { quantidade }; sem ele, zera o que está em falta.
+export async function regularizar(req: ReqComId, res: Response) {
+  const { id } = req.params;
+  const quantidade = req.body?.quantidade;
+
+  if (quantidade !== undefined && !quantidadeValida(quantidade)) {
+    return res.status(400).json({ error: 'A quantidade deve ser um número inteiro maior que zero.' });
+  }
+
+  try {
+    const acessorio = await prisma.acessorio.findUnique({ where: { id } });
+
+    if (!acessorio) {
+      return res.status(404).json({ error: 'Acessório não encontrado.' });
+    }
+
+    const atualizado = await prisma.acessorio.update({
+      where: { id },
+      data: { emFalta: quantidade === undefined ? 0 : Math.max(0, acessorio.emFalta - quantidade) },
+    });
+
+    return res.json(atualizado);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao regularizar o acessório.' });
+  }
+}
+
 // Admin: define o kit que acompanha um recurso, substituindo o anterior.
 // Corpo: { itens: [{ acessorioId, obrigatorio }] }
 export async function definirKit(req: ReqComId, res: Response) {

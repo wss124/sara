@@ -47,8 +47,8 @@ export async function carregarMovimentacoes() {
   return response.data;
 }
 
-export async function registrarRetirada(id) {
-  const response = await api.patch(`/solicitacoes/${id}/retirada`);
+export async function registrarRetirada(id, dados = {}) {
+  const response = await api.patch(`/solicitacoes/${id}/retirada`, dados);
   return response.data;
 }
 

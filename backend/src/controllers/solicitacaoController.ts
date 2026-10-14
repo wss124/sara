@@ -12,6 +12,14 @@ import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/e
 
 const CONDICOES_DEVOLUCAO = ['OK', 'COM_DEFEITO', 'INCOMPLETO'];
 
+// Lista de ids enviada no corpo; ausente vira lista vazia, formato inválido
+// vira undefined
+function listaDeIds(valor: unknown): string[] | undefined {
+  if (valor === undefined) return [];
+  if (!Array.isArray(valor) || valor.some((v) => typeof v !== 'string')) return undefined;
+  return valor;
+}
+
 type ReqComId = Request<{ id: string }>;
 
 const incluirDetalhes = {
@@ -493,11 +501,17 @@ export async function cancelarPeloAdmin(req: ReqComId, res: Response) {
 export async function registrarRetirada(req: ReqComId, res: Response) {
   const { id } = req.params;
   const agora = new Date();
+  const conferidos = listaDeIds(req.body?.itensConferidos);
+  const observacao = String(req.body?.observacao ?? '').trim();
+
+  if (!conferidos) {
+    return res.status(400).json({ error: 'Envie os acessórios conferidos como lista de ids.' });
+  }
 
   try {
     const reserva = await prisma.solicitacao.findUnique({
       where: { id },
-      include: { recurso: true },
+      include: { recurso: true, acessorios: { include: { acessorio: true } } },
     });
 
     if (!reserva) {
@@ -523,13 +537,29 @@ export async function registrarRetirada(req: ReqComId, res: Response) {
       return res.status(409).json({ error: 'O recurso está em manutenção ou indisponível.' });
     }
 
-    const [atualizada] = await prisma.$transaction([
+    // Checklist: todo acessório da reserva deve ser conferido na entrega,
+    // ou a falta precisa ser justificada
+    const naoEntregues = reserva.acessorios.filter((i) => !conferidos.includes(i.acessorioId));
+    if (naoEntregues.length > 0 && !observacao) {
+      return res.status(400).json({
+        error: `Confira todos os itens ou justifique o que não foi entregue: ${naoEntregues
+          .map((i) => i.acessorio.nome)
+          .join(', ')}.`,
+      });
+    }
+
+    const [, atualizada] = await prisma.$transaction([
+      prisma.solicitacaoAcessorio.updateMany({
+        where: { solicitacaoId: id, acessorioId: { in: conferidos } },
+        data: { entregue: true },
+      }),
       prisma.solicitacao.update({
         where: { id },
         data: {
           status: 'EM_ANDAMENTO',
           retiradoEm: agora,
           retiradaRegistradaPorId: req.usuario!.id,
+          observacaoRetirada: observacao || null,
         },
         include: incluirDetalhes,
       }),
@@ -549,18 +579,24 @@ export async function registrarRetirada(req: ReqComId, res: Response) {
 // restante do horário.
 export async function registrarDevolucao(req: ReqComId, res: Response) {
   const { id } = req.params;
-  const condicao = req.body?.condicao ?? 'OK';
-  const observacao = String(req.body?.observacao ?? '').trim();
+  let condicao = req.body?.condicao ?? 'OK';
+  let observacao = String(req.body?.observacao ?? '').trim();
+  // Sem checklist, considera que tudo o que foi entregue voltou
+  const devolvidos =
+    req.body?.itensDevolvidos === undefined ? null : listaDeIds(req.body.itensDevolvidos);
 
   if (!CONDICOES_DEVOLUCAO.includes(condicao)) {
     return res.status(400).json({ error: 'Condição inválida: use OK, COM_DEFEITO ou INCOMPLETO.' });
   }
-  if (condicao !== 'OK' && !observacao) {
-    return res.status(400).json({ error: 'Descreva o problema encontrado na devolução.' });
+  if (devolvidos === undefined) {
+    return res.status(400).json({ error: 'Envie os acessórios devolvidos como lista de ids.' });
   }
 
   try {
-    const reserva = await prisma.solicitacao.findUnique({ where: { id } });
+    const reserva = await prisma.solicitacao.findUnique({
+      where: { id },
+      include: { acessorios: { include: { acessorio: true } } },
+    });
 
     if (!reserva) {
       return res.status(404).json({ error: 'Reserva não encontrada.' });
@@ -569,8 +605,42 @@ export async function registrarDevolucao(req: ReqComId, res: Response) {
       return res.status(409).json({ error: 'Apenas recursos retirados podem ser devolvidos.' });
     }
 
-    const [atualizada] = await prisma.$transaction([
-      prisma.solicitacao.update({
+    // Item entregue que não voltou deixa a devolução incompleta e sai do
+    // estoque até o admin regularizar
+    const entregues = reserva.acessorios.filter((i) => i.entregue);
+    const faltando = devolvidos ? entregues.filter((i) => !devolvidos.includes(i.acessorioId)) : [];
+    if (faltando.length > 0) {
+      if (condicao === 'OK') condicao = 'INCOMPLETO';
+      if (!observacao) {
+        observacao = `Não devolvido: ${faltando.map((i) => i.acessorio.nome).join(', ')}.`;
+      }
+    }
+    if (condicao !== 'OK' && !observacao) {
+      return res.status(400).json({ error: 'Descreva o problema encontrado na devolução.' });
+    }
+    const idsFaltando = faltando.map((i) => i.acessorioId);
+
+    // A solicitação é gravada por último para a resposta já trazer o checklist
+    const atualizada = await prisma.$transaction(async (tx) => {
+      await tx.solicitacaoAcessorio.updateMany({
+        where: { solicitacaoId: id, entregue: true, acessorioId: { notIn: idsFaltando } },
+        data: { devolvido: true },
+      });
+      await tx.solicitacaoAcessorio.updateMany({
+        where: { solicitacaoId: id, acessorioId: { in: idsFaltando } },
+        data: { devolvido: false },
+      });
+      for (const item of faltando) {
+        await tx.acessorio.update({
+          where: { id: item.acessorioId },
+          data: { emFalta: { increment: item.quantidade } },
+        });
+      }
+      await tx.recurso.update({
+        where: { id: reserva.recursoId },
+        data: { estado: condicao === 'COM_DEFEITO' ? 'EM_MANUTENCAO' : 'DISPONIVEL' },
+      });
+      return tx.solicitacao.update({
         where: { id },
         data: {
           status: 'CONCLUIDA',
@@ -580,12 +650,8 @@ export async function registrarDevolucao(req: ReqComId, res: Response) {
           observacaoDevolucao: observacao || null,
         },
         include: incluirDetalhes,
-      }),
-      prisma.recurso.update({
-        where: { id: reserva.recursoId },
-        data: { estado: condicao === 'COM_DEFEITO' ? 'EM_MANUTENCAO' : 'DISPONIVEL' },
-      }),
-    ]);
+      });
+    });
 
     const reservasAfetadas =
       condicao === 'COM_DEFEITO' ? await buscarReservasFuturas(reserva.recursoId) : [];

@@ -6,6 +6,7 @@ import {
   atualizar,
   remover,
   disponibilidade,
+  regularizar,
 } from '../controllers/acessorioController';
 
 const router = Router();
@@ -18,5 +19,6 @@ router.get('/disponibilidade', disponibilidade);
 router.post('/', somenteAdmin, criar);
 router.put('/:id', somenteAdmin, atualizar);
 router.delete('/:id', somenteAdmin, remover);
+router.patch('/:id/regularizar', somenteAdmin, regularizar);
 
 export { router as acessorioRoutes };

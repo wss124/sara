@@ -83,6 +83,9 @@ model Acessorio {
   descricao   String?
   localizacao String?
   quantidade  Int      @default(1)
+  // Unidades que não voltaram numa devolução; ficam fora do estoque até o
+  // admin regularizar
+  emFalta     Int      @default(0)
   ativo       Boolean  @default(true)
   criadoEm    DateTime @default(now())
 
@@ -108,6 +111,9 @@ model SolicitacaoAcessorio {
   acessorio     Acessorio   @relation(fields: [acessorioId], references: [id])
   acessorioId   String
   quantidade    Int         @default(1)
+  // Checklist do balcão: conferido na entrega e na devolução
+  entregue      Boolean     @default(false)
+  devolvido     Boolean?
 
   @@id([solicitacaoId, acessorioId])
 }
@@ -135,6 +141,7 @@ model Solicitacao {
 
   // Entrega e devolução registradas pelo admin no balcão
   retiradoEm               DateTime?
+  observacaoRetirada       String?
   retiradaRegistradaPor    Usuario?  @relation("RetiradasRegistradas", fields: [retiradaRegistradaPorId], references: [id])
   retiradaRegistradaPorId  String?
   devolvidoEm              DateTime?
