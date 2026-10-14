@@ -138,7 +138,7 @@ function Handovers() {
 
       <Secao
         titulo="Em uso"
-        descricao="Recursos retirados que ainda não voltaram."
+        descricao="Recursos retirados que ainda não voltaram. Atrasos geram aviso por e-mail ao professor."
         vazio="Nenhum recurso fora no momento."
         itens={dados.emUso}
         renderDetalhe={(s) => (
@@ -149,6 +149,11 @@ function Handovers() {
             </span>
             {s.observacaoRetirada && (
               <span className="request-meta">Na entrega: {s.observacaoRetirada}</span>
+            )}
+            {s.atrasada && (
+              <span className="handover-tag handover-tag-atrasado">
+                Atrasado: deveria ter voltado às {hora(s.dataFim)}
+              </span>
             )}
           </>
         )}

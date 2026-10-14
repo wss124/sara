@@ -153,6 +153,9 @@ model Solicitacao {
   canceladoEm              DateTime?
   motivoCancelamento       String?
 
+  // Controle de envio único do aviso de devolução atrasada
+  avisoAtrasoEnviadoEm     DateTime?
+
   acessorios SolicitacaoAcessorio[]
 
   criadoEm      DateTime          @default(now())

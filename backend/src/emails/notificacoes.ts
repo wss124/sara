@@ -46,6 +46,11 @@ export function canceladaPeloProfessor(r: ReservaEmail) {
   paraAdmins((admins) => templates.reservaCanceladaParaAdmins(r, admins));
 }
 
+export function devolucaoAtrasada(r: ReservaEmail, proxima: ReservaEmail | null) {
+  paraProfessor(r, () => templates.devolucaoAtrasada(r));
+  paraAdmins((admins) => templates.atrasoParaAdmins(r, admins, proxima));
+}
+
 export function recursoForaDeUso(reservas: ReservaEmail[], estado: 'EM_MANUTENCAO' | 'INDISPONIVEL') {
   for (const r of reservas) paraProfessor(r, () => templates.recursoForaDeUso(r, estado));
 }

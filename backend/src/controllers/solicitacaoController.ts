@@ -7,7 +7,12 @@ import {
   travarAcessorios,
   type ItemPedido,
 } from '../lib/estoqueAcessorios';
-import { STATUS_SOLICITACAO, STATUS_OCUPANTES, ANTECEDENCIA_RETIRADA_MIN } from '../lib/status';
+import {
+  STATUS_SOLICITACAO,
+  STATUS_OCUPANTES,
+  ANTECEDENCIA_RETIRADA_MIN,
+  estaAtrasada,
+} from '../lib/status';
 import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/enums';
 import * as notificar from '../emails/notificacoes';
 
@@ -702,7 +707,12 @@ export async function movimentacoes(req: Request, res: Response) {
       }),
     ]);
 
-    return res.json({ geradoEm: agora, aguardandoRetirada, emUso, devolvidasHoje });
+    return res.json({
+      geradoEm: agora,
+      aguardandoRetirada,
+      emUso: emUso.map((r) => ({ ...r, atrasada: estaAtrasada(r, agora) })),
+      devolvidasHoje,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao carregar retiradas e devoluções.' });
