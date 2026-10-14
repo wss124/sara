@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { violouSobreposicao } from '../lib/erros';
 
 type ReqComId = Request<{ id: string }>;
 
@@ -156,6 +157,9 @@ export async function reservar(req: Request, res: Response) {
 
     return res.status(201).json({ ...reserva, pendentesConflitantes });
   } catch (error) {
+    if (violouSobreposicao(error)) {
+      return res.status(409).json({ error: 'O recurso já está reservado nesse horário.' });
+    }
     console.error(error);
     return res.status(500).json({ error: 'Erro ao registrar reserva.' });
   }
@@ -263,7 +267,9 @@ export async function aprovar(req: ReqComId, res: Response) {
       return res.status(409).json({ error: 'Apenas solicitações pendentes podem ser aprovadas.' });
     }
 
-    // Outra solicitação pode ter sido aprovada para o mesmo horário depois desta ser criada
+    // Outra solicitação pode ter sido aprovada para o mesmo horário depois desta
+    // ser criada. A checagem dá uma mensagem clara; a constraint do banco cobre
+    // o caso de duas aprovações simultâneas, que passariam ambas por aqui.
     const conflito = await buscarConflito(
       solicitacao.recursoId,
       solicitacao.dataInicio,
@@ -284,6 +290,11 @@ export async function aprovar(req: ReqComId, res: Response) {
 
     return res.json(atualizada);
   } catch (error) {
+    if (violouSobreposicao(error)) {
+      return res.status(409).json({
+        error: 'Já existe uma reserva aprovada nesse horário. Recuse esta solicitação.',
+      });
+    }
     console.error(error);
     return res.status(500).json({ error: 'Erro ao aprovar solicitação.' });
   }
