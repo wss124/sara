@@ -25,6 +25,14 @@ const RECURSOS = [
   { nome: 'Notebook Dell', tipo: 'EQUIPAMENTO', descricao: 'Para apresentações', localizacao: 'Coordenação do curso', estado: 'EM_MANUTENCAO' },
 ] as const;
 
+// Turnos de aula. Horários provisórios: confirmar com a coordenação do campus
+// e ajustar na tela Turnos (o seed só cria os que ainda não existem).
+const TURNOS = [
+  { nome: 'Manhã', horaInicio: '07:30', horaFim: '12:00', ordem: 1 },
+  { nome: 'Tarde', horaInicio: '13:30', horaFim: '18:00', ordem: 2 },
+  { nome: 'Noite', horaInicio: '18:30', horaFim: '22:00', ordem: 3 },
+];
+
 const ACESSORIOS = [
   { nome: 'Extensão 5 m', quantidade: 2, localizacao: 'Dispensa do Bloco B' },
   { nome: 'Cabo HDMI', quantidade: 3, localizacao: 'Coordenação do curso' },
@@ -86,6 +94,11 @@ async function main() {
         })
       : await prisma.recurso.create({ data: r });
     recursos[r.nome] = recurso.id;
+  }
+
+  for (const t of TURNOS) {
+    const existente = await prisma.turno.findFirst({ where: { nome: t.nome } });
+    if (!existente) await prisma.turno.create({ data: t });
   }
 
   const acessorios: Record<string, string> = {};

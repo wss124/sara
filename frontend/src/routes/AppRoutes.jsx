@@ -9,6 +9,7 @@ import Approvals from '../pages/Approvals/Approvals';
 import Users from '../pages/Users/Users';
 import Handovers from '../pages/Handovers/Handovers';
 import Accessories from '../pages/Accessories/Accessories';
+import Shifts from '../pages/Shifts/Shifts';
 import UserLayout from '../layouts/UserLayout/UserLayout';
 import PrivateRoute from './PrivateRoute';
 import AdminRoute from './AdminRoute';
@@ -44,6 +45,14 @@ function AppRoutes() {
             element={
               <AdminRoute>
                 <Approvals />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/shifts"
+            element={
+              <AdminRoute>
+                <Shifts />
               </AdminRoute>
             }
           />

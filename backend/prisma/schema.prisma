@@ -76,6 +76,16 @@ model Recurso {
   acessorios   RecursoAcessorio[]
 }
 
+// Turno de aula do campus. Horários no formato "HH:MM", no fuso do campus.
+model Turno {
+  id         String  @id @default(cuid())
+  nome       String
+  horaInicio String
+  horaFim    String
+  ordem      Int     @default(0)
+  ativo      Boolean @default(true)
+}
+
 // Execuções de rotinas que devem acontecer uma vez só (ex.: resumo diário
 // "resumo-diario-2026-10-14"); a chave primária garante a unicidade
 model RotinaExecucao {
