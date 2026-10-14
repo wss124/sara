@@ -1,9 +1,15 @@
 import { avisarAtrasos } from './atrasos';
+import { lembrarRetiradas, lembrarDevolucoes, enviarResumoDiario } from './lembretes';
 
 // Intervalo entre as verificações periódicas (atrasos e lembretes)
 const INTERVALO_MS = Number(process.env.INTERVALO_ROTINAS_SEG ?? 60) * 1000;
 
-const ROTINAS: [string, (agora: Date) => Promise<unknown>][] = [['atrasos', avisarAtrasos]];
+const ROTINAS: [string, (agora: Date) => Promise<unknown>][] = [
+  ['atrasos', avisarAtrasos],
+  ['lembretes de retirada', lembrarRetiradas],
+  ['lembretes de devolução', lembrarDevolucoes],
+  ['resumo diário', enviarResumoDiario],
+];
 
 async function executarTodas() {
   const agora = new Date();

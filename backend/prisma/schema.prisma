@@ -76,6 +76,13 @@ model Recurso {
   acessorios   RecursoAcessorio[]
 }
 
+// Execuções de rotinas que devem acontecer uma vez só (ex.: resumo diário
+// "resumo-diario-2026-10-14"); a chave primária garante a unicidade
+model RotinaExecucao {
+  chave       String   @id
+  executadaEm DateTime @default(now())
+}
+
 // Item que acompanha recursos (extensão, cabo HDMI, controle remoto...)
 model Acessorio {
   id          String   @id @default(cuid())
@@ -153,8 +160,10 @@ model Solicitacao {
   canceladoEm              DateTime?
   motivoCancelamento       String?
 
-  // Controle de envio único do aviso de devolução atrasada
-  avisoAtrasoEnviadoEm     DateTime?
+  // Controle de envio único dos e-mails automáticos
+  avisoAtrasoEnviadoEm       DateTime?
+  lembreteRetiradaEnviadoEm  DateTime?
+  lembreteDevolucaoEnviadoEm DateTime?
 
   acessorios SolicitacaoAcessorio[]
 

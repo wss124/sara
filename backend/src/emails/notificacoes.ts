@@ -51,6 +51,18 @@ export function devolucaoAtrasada(r: ReservaEmail, proxima: ReservaEmail | null)
   paraAdmins((admins) => templates.atrasoParaAdmins(r, admins, proxima));
 }
 
+export function lembreteRetirada(r: ReservaEmail) {
+  paraProfessor(r, () => templates.lembreteRetirada(r));
+}
+
+export function lembreteDevolucao(r: ReservaEmail) {
+  paraProfessor(r, () => templates.lembreteDevolucao(r));
+}
+
+export function resumoDiario(resumo: templates.ResumoDiario) {
+  paraAdmins((admins) => templates.resumoDiarioParaAdmins(resumo, admins));
+}
+
 export function recursoForaDeUso(reservas: ReservaEmail[], estado: 'EM_MANUTENCAO' | 'INDISPONIVEL') {
   for (const r of reservas) paraProfessor(r, () => templates.recursoForaDeUso(r, estado));
 }
