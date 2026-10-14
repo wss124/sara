@@ -1,16 +1,18 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { violouSobreposicao } from '../lib/erros';
+import { STATUS_SOLICITACAO, STATUS_OCUPANTES, ANTECEDENCIA_RETIRADA_MIN } from '../lib/status';
+import type { StatusSolicitacao } from '../generated/prisma/enums';
 
 type ReqComId = Request<{ id: string }>;
-
-const STATUS_VALIDOS = ['PENDENTE', 'APROVADA', 'RECUSADA'];
 
 const incluirDetalhes = {
   recurso: { select: { id: true, nome: true, tipo: true, localizacao: true } },
   usuario: { select: { id: true, nome: true, email: true, perfil: true } },
   aprovadoPor: { select: { id: true, nome: true } },
   lancadoPor: { select: { id: true, nome: true } },
+  retiradaRegistradaPor: { select: { id: true, nome: true } },
+  devolucaoRegistradaPor: { select: { id: true, nome: true } },
 } as const;
 
 function parseData(valor: unknown) {
@@ -18,13 +20,13 @@ function parseData(valor: unknown) {
   return Number.isNaN(data.getTime()) ? null : data;
 }
 
-// Procura uma solicitação aprovada do mesmo recurso cujo período se sobrepõe
-// ao informado (início < fim existente e fim > início existente).
+// Procura uma reserva ativa (aprovada ou em uso) do mesmo recurso cujo período
+// se sobrepõe ao informado (início < fim existente e fim > início existente).
 function buscarConflito(recursoId: string, inicio: Date, fim: Date, ignorarId?: string) {
   return prisma.solicitacao.findFirst({
     where: {
       recursoId,
-      status: 'APROVADA',
+      status: { in: STATUS_OCUPANTES },
       dataInicio: { lt: fim },
       dataFim: { gt: inicio },
       ...(ignorarId ? { id: { not: ignorarId } } : {}),
@@ -185,8 +187,8 @@ export async function cancelarReserva(req: ReqComId, res: Response) {
     if (!reserva || !reserva.lancadoPorId) {
       return res.status(404).json({ error: 'Reserva não encontrada.' });
     }
-    if (reserva.dataFim < new Date()) {
-      return res.status(409).json({ error: 'Esta reserva já foi encerrada.' });
+    if (reserva.status !== 'APROVADA' || reserva.dataFim < new Date()) {
+      return res.status(409).json({ error: 'Esta reserva já foi retirada ou encerrada.' });
     }
 
     await prisma.solicitacao.delete({ where: { id } });
@@ -216,13 +218,13 @@ export async function listarMinhas(req: Request, res: Response) {
 export async function listarTodas(req: Request, res: Response) {
   const { status } = req.query;
 
-  if (status && !STATUS_VALIDOS.includes(String(status))) {
+  if (status && !STATUS_SOLICITACAO.includes(status as StatusSolicitacao)) {
     return res.status(400).json({ error: 'Status inválido.' });
   }
 
   try {
     const solicitacoes = await prisma.solicitacao.findMany({
-      where: status ? { status: status as 'PENDENTE' | 'APROVADA' | 'RECUSADA' } : {},
+      where: status ? { status: status as StatusSolicitacao } : {},
       include: incluirDetalhes,
       orderBy: { dataInicio: 'asc' },
     });
@@ -234,7 +236,7 @@ export async function listarTodas(req: Request, res: Response) {
   }
 }
 
-// Horários já reservados (aprovados) de um recurso num intervalo,
+// Horários já reservados (aprovados ou em uso) de um recurso num intervalo,
 // usado pelo formulário para mostrar a disponibilidade antes de solicitar.
 export async function ocupacao(req: Request, res: Response) {
   const { recursoId } = req.query;
@@ -249,7 +251,7 @@ export async function ocupacao(req: Request, res: Response) {
     const reservas = await prisma.solicitacao.findMany({
       where: {
         recursoId: String(recursoId),
-        status: 'APROVADA',
+        status: { in: STATUS_OCUPANTES },
         dataInicio: { lt: fim },
         dataFim: { gt: inicio },
       },
@@ -343,7 +345,9 @@ export async function recusar(req: ReqComId, res: Response) {
   }
 }
 
-// O próprio usuário pode cancelar (excluir) uma solicitação ainda pendente
+// O próprio usuário desiste do pedido: uma solicitação pendente é excluída;
+// uma reserva aprovada ainda não retirada é marcada como CANCELADA, para
+// manter o histórico e liberar o horário.
 export async function cancelar(req: ReqComId, res: Response) {
   const { id } = req.params;
 
@@ -353,14 +357,151 @@ export async function cancelar(req: ReqComId, res: Response) {
     if (!solicitacao || solicitacao.usuarioId !== req.usuario!.id) {
       return res.status(404).json({ error: 'Solicitação não encontrada.' });
     }
-    if (solicitacao.status !== 'PENDENTE') {
-      return res.status(409).json({ error: 'Apenas solicitações pendentes podem ser canceladas.' });
+
+    if (solicitacao.status === 'PENDENTE') {
+      await prisma.solicitacao.delete({ where: { id } });
+      return res.status(204).send();
     }
 
-    await prisma.solicitacao.delete({ where: { id } });
-    return res.status(204).send();
+    if (solicitacao.status === 'APROVADA' && solicitacao.dataFim > new Date()) {
+      const cancelada = await prisma.solicitacao.update({
+        where: { id },
+        data: { status: 'CANCELADA', canceladoEm: new Date() },
+        include: incluirDetalhes,
+      });
+      return res.json(cancelada);
+    }
+
+    return res.status(409).json({
+      error: 'Só é possível cancelar pedidos pendentes ou reservas aprovadas ainda não retiradas.',
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao cancelar solicitação.' });
+  }
+}
+
+// Admin: entrega o recurso ao responsável. A reserva passa a EM_ANDAMENTO e o
+// recurso a EM_USO, na mesma transação.
+export async function registrarRetirada(req: ReqComId, res: Response) {
+  const { id } = req.params;
+  const agora = new Date();
+
+  try {
+    const reserva = await prisma.solicitacao.findUnique({
+      where: { id },
+      include: { recurso: true },
+    });
+
+    if (!reserva) {
+      return res.status(404).json({ error: 'Reserva não encontrada.' });
+    }
+    if (reserva.status !== 'APROVADA') {
+      return res.status(409).json({ error: 'Apenas reservas aprovadas podem ser retiradas.' });
+    }
+
+    const liberadaEm = new Date(reserva.dataInicio.getTime() - ANTECEDENCIA_RETIRADA_MIN * 60_000);
+    if (agora < liberadaEm) {
+      return res.status(409).json({
+        error: `A retirada só pode ser registrada a partir de ${ANTECEDENCIA_RETIRADA_MIN} minutos antes do início.`,
+      });
+    }
+    if (agora >= reserva.dataFim) {
+      return res.status(409).json({ error: 'O horário desta reserva já terminou.' });
+    }
+    if (reserva.recurso.estado === 'EM_USO') {
+      return res.status(409).json({ error: 'O recurso ainda não foi devolvido pelo uso anterior.' });
+    }
+    if (reserva.recurso.estado !== 'DISPONIVEL') {
+      return res.status(409).json({ error: 'O recurso está em manutenção ou indisponível.' });
+    }
+
+    const [atualizada] = await prisma.$transaction([
+      prisma.solicitacao.update({
+        where: { id },
+        data: {
+          status: 'EM_ANDAMENTO',
+          retiradoEm: agora,
+          retiradaRegistradaPorId: req.usuario!.id,
+        },
+        include: incluirDetalhes,
+      }),
+      prisma.recurso.update({ where: { id: reserva.recursoId }, data: { estado: 'EM_USO' } }),
+    ]);
+
+    return res.json(atualizada);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao registrar a retirada.' });
+  }
+}
+
+// Admin: recebe o recurso de volta. A reserva é concluída e o recurso volta a
+// ficar disponível. Uma devolução antecipada libera o restante do horário.
+export async function registrarDevolucao(req: ReqComId, res: Response) {
+  const { id } = req.params;
+
+  try {
+    const reserva = await prisma.solicitacao.findUnique({ where: { id } });
+
+    if (!reserva) {
+      return res.status(404).json({ error: 'Reserva não encontrada.' });
+    }
+    if (reserva.status !== 'EM_ANDAMENTO') {
+      return res.status(409).json({ error: 'Apenas recursos retirados podem ser devolvidos.' });
+    }
+
+    const [atualizada] = await prisma.$transaction([
+      prisma.solicitacao.update({
+        where: { id },
+        data: {
+          status: 'CONCLUIDA',
+          devolvidoEm: new Date(),
+          devolucaoRegistradaPorId: req.usuario!.id,
+        },
+        include: incluirDetalhes,
+      }),
+      prisma.recurso.update({ where: { id: reserva.recursoId }, data: { estado: 'DISPONIVEL' } }),
+    ]);
+
+    return res.json(atualizada);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao registrar a devolução.' });
+  }
+}
+
+// Admin: painel do balcão. Reservas do dia aguardando retirada, tudo o que está
+// com alguém agora (inclusive atrasos de dias anteriores) e as devoluções de hoje.
+export async function movimentacoes(req: Request, res: Response) {
+  const agora = new Date();
+  const inicioDoDia = new Date(agora);
+  inicioDoDia.setHours(0, 0, 0, 0);
+  const fimDoDia = new Date(inicioDoDia);
+  fimDoDia.setDate(fimDoDia.getDate() + 1);
+
+  try {
+    const [aguardandoRetirada, emUso, devolvidasHoje] = await Promise.all([
+      prisma.solicitacao.findMany({
+        where: { status: 'APROVADA', dataInicio: { lt: fimDoDia }, dataFim: { gt: agora } },
+        include: incluirDetalhes,
+        orderBy: { dataInicio: 'asc' },
+      }),
+      prisma.solicitacao.findMany({
+        where: { status: 'EM_ANDAMENTO' },
+        include: incluirDetalhes,
+        orderBy: { dataFim: 'asc' },
+      }),
+      prisma.solicitacao.findMany({
+        where: { status: 'CONCLUIDA', devolvidoEm: { gte: inicioDoDia } },
+        include: incluirDetalhes,
+        orderBy: { devolvidoEm: 'desc' },
+      }),
+    ]);
+
+    return res.json({ geradoEm: agora, aguardandoRetirada, emUso, devolvidasHoje });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao carregar retiradas e devoluções.' });
   }
 }

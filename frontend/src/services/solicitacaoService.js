@@ -42,6 +42,21 @@ export async function lancarReserva(dados) {
   return response.data;
 }
 
+export async function carregarMovimentacoes() {
+  const response = await api.get('/solicitacoes/movimentacoes');
+  return response.data;
+}
+
+export async function registrarRetirada(id) {
+  const response = await api.patch(`/solicitacoes/${id}/retirada`);
+  return response.data;
+}
+
+export async function registrarDevolucao(id, dados = {}) {
+  const response = await api.patch(`/solicitacoes/${id}/devolucao`, dados);
+  return response.data;
+}
+
 export async function cancelarReserva(id) {
   await api.delete(`/solicitacoes/reservas/${id}`);
 }

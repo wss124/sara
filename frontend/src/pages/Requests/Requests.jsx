@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Segmented, Popconfirm, Empty, Spin, message } from 'antd';
+import dayjs from 'dayjs';
 import { PlusOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import {
   listarMinhasSolicitacoes,
@@ -49,7 +50,7 @@ function Requests() {
   const cancelar = async (id) => {
     try {
       await cancelarSolicitacao(id);
-      message.success('Solicitação cancelada.');
+      message.success('Cancelado.');
       carregar();
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao cancelar solicitação.');
@@ -85,7 +86,10 @@ function Requests() {
           { label: `Todas (${solicitacoes.length})`, value: 'TODAS' },
           { label: `Pendentes (${contar('PENDENTE')})`, value: 'PENDENTE' },
           { label: `Aprovadas (${contar('APROVADA')})`, value: 'APROVADA' },
+          { label: `Em uso (${contar('EM_ANDAMENTO')})`, value: 'EM_ANDAMENTO' },
+          { label: `Concluídas (${contar('CONCLUIDA')})`, value: 'CONCLUIDA' },
           { label: `Recusadas (${contar('RECUSADA')})`, value: 'RECUSADA' },
+          { label: `Canceladas (${contar('CANCELADA')})`, value: 'CANCELADA' },
         ]}
       />
 
@@ -124,9 +128,13 @@ function Requests() {
                 <span className={`request-status ${STATUS[s.status].className}`}>
                   {STATUS[s.status].label}
                 </span>
-                {s.status === 'PENDENTE' && (
+                {(s.status === 'PENDENTE' ||
+                  (s.status === 'APROVADA' && dayjs().isBefore(s.dataFim))) && (
                   <Popconfirm
-                    title="Cancelar solicitação?"
+                    title={s.status === 'PENDENTE' ? 'Cancelar solicitação?' : 'Cancelar reserva?'}
+                    description={
+                      s.status === 'APROVADA' ? 'O horário volta a ficar livre para outros professores.' : undefined
+                    }
                     okText="Sim, cancelar"
                     cancelText="Não"
                     okButtonProps={{ danger: true }}

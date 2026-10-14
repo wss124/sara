@@ -27,10 +27,15 @@ enum EstadoRecurso {
   INDISPONIVEL
 }
 
+// Ciclo da reserva: PENDENTE -> APROVADA -> EM_ANDAMENTO (retirada)
+// -> CONCLUIDA (devolução). RECUSADA e CANCELADA encerram o pedido sem uso.
 enum StatusSolicitacao {
   PENDENTE
   APROVADA
   RECUSADA
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
 }
 
 model Usuario {
@@ -44,6 +49,8 @@ model Usuario {
   solicitacoes      Solicitacao[] @relation("SolicitacoesDoUsuario")
   solicitacoesAprovadas Solicitacao[] @relation("AprovacoesDoAdmin")
   reservasLancadas      Solicitacao[] @relation("LancamentosDoAdmin")
+  retiradasRegistradas  Solicitacao[] @relation("RetiradasRegistradas")
+  devolucoesRegistradas Solicitacao[] @relation("DevolucoesRegistradas")
 }
 
 model Recurso {
@@ -81,6 +88,15 @@ model Solicitacao {
 
   aprovadoPor   Usuario?          @relation("AprovacoesDoAdmin", fields: [aprovadoPorId], references: [id])
   aprovadoPorId String?
+
+  // Entrega e devolução registradas pelo admin no balcão
+  retiradoEm               DateTime?
+  retiradaRegistradaPor    Usuario?  @relation("RetiradasRegistradas", fields: [retiradaRegistradaPorId], references: [id])
+  retiradaRegistradaPorId  String?
+  devolvidoEm              DateTime?
+  devolucaoRegistradaPor   Usuario?  @relation("DevolucoesRegistradas", fields: [devolucaoRegistradaPorId], references: [id])
+  devolucaoRegistradaPorId String?
+  canceladoEm              DateTime?
 
   criadoEm      DateTime          @default(now())
   atualizadoEm  DateTime          @updatedAt

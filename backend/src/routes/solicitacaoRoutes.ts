@@ -10,6 +10,9 @@ import {
   cancelar,
   reservar,
   cancelarReserva,
+  registrarRetirada,
+  registrarDevolucao,
+  movimentacoes,
 } from '../controllers/solicitacaoController';
 
 const router = Router();
@@ -24,6 +27,9 @@ router.delete('/:id', cancelar);
 
 // Administrador
 router.get('/', somenteAdmin, listarTodas);
+router.get('/movimentacoes', somenteAdmin, movimentacoes);
+router.patch('/:id/retirada', somenteAdmin, registrarRetirada);
+router.patch('/:id/devolucao', somenteAdmin, registrarDevolucao);
 router.patch('/:id/aprovar', somenteAdmin, aprovar);
 router.patch('/:id/recusar', somenteAdmin, recusar);
 router.post('/reservas', somenteAdmin, reservar);

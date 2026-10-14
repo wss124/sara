@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { STATUS_OCUPANTES } from '../lib/status';
 
 // Resumo usado pelo dashboard: indicadores do usuário, situação atual de cada
 // recurso ativo (em uso agora / próxima reserva) e a agenda aprovada de hoje.
@@ -22,7 +23,7 @@ export async function resumo(req: Request, res: Response) {
           tipo: true,
           foto: true,
           solicitacoes: {
-            where: { status: 'APROVADA', dataFim: { gt: agora } },
+            where: { status: { in: STATUS_OCUPANTES }, dataFim: { gt: agora } },
             select: {
               id: true,
               dataInicio: true,
@@ -45,7 +46,7 @@ export async function resumo(req: Request, res: Response) {
       isAdmin ? prisma.solicitacao.count({ where: { status: 'PENDENTE' } }) : Promise.resolve(null),
       prisma.solicitacao.findMany({
         where: {
-          status: 'APROVADA',
+          status: { in: [...STATUS_OCUPANTES, 'CONCLUIDA'] },
           dataInicio: { lt: fimDoDia },
           dataFim: { gt: inicioDoDia },
         },

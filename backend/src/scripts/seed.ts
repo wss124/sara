@@ -73,13 +73,15 @@ async function main() {
   await prisma.solicitacao.createMany({
     data: [
       {
-        // Em uso agora: aparece como ocupado no dashboard
+        // Em uso agora: já retirado no balcão, aparece como ocupado no dashboard
         usuarioId: professor!.id,
         recursoId: recursos['Laboratório de Informática 1']!,
         dataInicio: horas(-1),
         dataFim: horas(1),
-        status: 'APROVADA',
+        status: 'EM_ANDAMENTO',
         aprovadoPorId: admin!.id,
+        retiradoEm: horas(-1),
+        retiradaRegistradaPorId: admin!.id,
         observacao: 'Aula prática de Banco de Dados',
       },
       {
@@ -117,6 +119,10 @@ async function main() {
         observacao: 'Palestra da semana acadêmica',
       },
     ],
+  });
+  await prisma.recurso.update({
+    where: { id: recursos['Laboratório de Informática 1']! },
+    data: { estado: 'EM_USO' },
   });
 
   console.log('Dados de demonstração prontos. Senha de todos os usuários demo:', SENHA_DEMO);

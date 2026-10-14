@@ -139,6 +139,18 @@
   color: #b23b3b;
   background: #b23b3b1a;
 }
+.status-andamento {
+  color: #2b5797;
+  background: #2b57971a;
+}
+.status-concluida {
+  color: #555;
+  background: #0000000d;
+}
+.status-cancelada {
+  color: #999;
+  background: #0000000a;
+}
 
 /* Aviso de horários já reservados no formulário */
 /* ---------- Grade de horários ---------- */

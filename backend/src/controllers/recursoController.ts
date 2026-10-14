@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import multer from 'multer';
 import { prisma } from '../lib/prisma';
 import { uploadFoto, caminhoPublico, apagarFoto } from '../lib/upload';
+import { STATUS_OCUPANTES } from '../lib/status';
 
 type ReqComId = Request<{ id: string }>;
 
@@ -34,7 +35,7 @@ export async function listar(req: Request, res: Response) {
       include: {
         solicitacoes: {
           where: {
-            status: 'APROVADA',
+            status: { in: STATUS_OCUPANTES },
             dataInicio: { lte: agora },
             dataFim: { gte: agora },
           },

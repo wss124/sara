@@ -103,7 +103,10 @@ function Approvals() {
         options={[
           { label: 'Pendentes', value: 'PENDENTE' },
           { label: 'Aprovadas', value: 'APROVADA' },
+          { label: 'Em uso', value: 'EM_ANDAMENTO' },
+          { label: 'Concluídas', value: 'CONCLUIDA' },
           { label: 'Recusadas', value: 'RECUSADA' },
+          { label: 'Canceladas', value: 'CANCELADA' },
           { label: 'Todas', value: 'TODAS' },
         ]}
       />
@@ -169,7 +172,7 @@ function Approvals() {
                     <span className={`request-status ${STATUS[s.status].className}`}>
                       {s.lancadoPor ? 'Reserva do admin' : STATUS[s.status].label}
                     </span>
-                    {s.lancadoPor && dayjs().isBefore(s.dataFim) && (
+                    {s.lancadoPor && s.status === 'APROVADA' && dayjs().isBefore(s.dataFim) && (
                       <Popconfirm
                         title="Cancelar esta reserva?"
                         description="O horário volta a ficar livre."
