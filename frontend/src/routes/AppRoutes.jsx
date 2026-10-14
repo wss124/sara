@@ -8,6 +8,7 @@ import Requests from '../pages/Requests/Requests';
 import Approvals from '../pages/Approvals/Approvals';
 import Users from '../pages/Users/Users';
 import Handovers from '../pages/Handovers/Handovers';
+import Accessories from '../pages/Accessories/Accessories';
 import UserLayout from '../layouts/UserLayout/UserLayout';
 import PrivateRoute from './PrivateRoute';
 import AdminRoute from './AdminRoute';
@@ -43,6 +44,14 @@ function AppRoutes() {
             element={
               <AdminRoute>
                 <Approvals />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/accessories"
+            element={
+              <AdminRoute>
+                <Accessories />
               </AdminRoute>
             }
           />

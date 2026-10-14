@@ -73,6 +73,31 @@ model Recurso {
   criadoEm   DateTime    @default(now())
 
   solicitacoes Solicitacao[]
+  acessorios   RecursoAcessorio[]
+}
+
+// Item que acompanha recursos (extensão, cabo HDMI, controle remoto...)
+model Acessorio {
+  id          String   @id @default(cuid())
+  nome        String
+  descricao   String?
+  localizacao String?
+  quantidade  Int      @default(1)
+  ativo       Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+
+  recursos RecursoAcessorio[]
+}
+
+// Kit do recurso: quais acessórios o acompanham e se são obrigatórios
+model RecursoAcessorio {
+  recurso     Recurso   @relation(fields: [recursoId], references: [id], onDelete: Cascade)
+  recursoId   String
+  acessorio   Acessorio @relation(fields: [acessorioId], references: [id], onDelete: Cascade)
+  acessorioId String
+  obrigatorio Boolean   @default(false)
+
+  @@id([recursoId, acessorioId])
 }
 
 model Solicitacao {

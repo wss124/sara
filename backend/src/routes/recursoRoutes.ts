@@ -10,6 +10,7 @@ import {
   removerFoto,
   alterarEstado,
 } from '../controllers/recursoController';
+import { definirKit } from '../controllers/acessorioController';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.delete('/:id', somenteAdmin, remover);
 router.put('/:id/foto', somenteAdmin, atualizarFoto);
 router.delete('/:id/foto', somenteAdmin, removerFoto);
 router.patch('/:id/estado', somenteAdmin, alterarEstado);
+router.put('/:id/acessorios', somenteAdmin, definirKit);
 
 export { router as recursoRoutes };

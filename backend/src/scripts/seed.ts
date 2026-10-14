@@ -25,6 +25,28 @@ const RECURSOS = [
   { nome: 'Notebook Dell', tipo: 'EQUIPAMENTO', descricao: 'Para apresentações', localizacao: 'Coordenação do curso', estado: 'EM_MANUTENCAO' },
 ] as const;
 
+const ACESSORIOS = [
+  { nome: 'Extensão 5 m', quantidade: 2, localizacao: 'Dispensa do Bloco B' },
+  { nome: 'Cabo HDMI', quantidade: 3, localizacao: 'Coordenação do curso' },
+  { nome: 'Controle remoto do projetor', quantidade: 1, localizacao: 'Coordenação do curso' },
+  { nome: 'Apontador laser', quantidade: 1, localizacao: 'Coordenação do curso' },
+  { nome: 'Carregador do notebook', quantidade: 1, localizacao: 'Coordenação do curso' },
+] as const;
+
+// O que acompanha cada recurso: [acessório, obrigatório]
+const KITS: Record<string, [string, boolean][]> = {
+  'Projetor Epson': [
+    ['Extensão 5 m', true],
+    ['Cabo HDMI', true],
+    ['Controle remoto do projetor', true],
+    ['Apontador laser', false],
+  ],
+  'Notebook Dell': [
+    ['Carregador do notebook', true],
+    ['Cabo HDMI', false],
+  ],
+};
+
 // Horário cheio relativo a agora (ex.: horas(-1) = uma hora atrás, arredondado)
 function horas(deslocamento: number) {
   const data = new Date();
@@ -64,6 +86,23 @@ async function main() {
         })
       : await prisma.recurso.create({ data: r });
     recursos[r.nome] = recurso.id;
+  }
+
+  const acessorios: Record<string, string> = {};
+  for (const a of ACESSORIOS) {
+    const existente = await prisma.acessorio.findFirst({ where: { nome: a.nome } });
+    const acessorio = existente ?? (await prisma.acessorio.create({ data: a }));
+    acessorios[a.nome] = acessorio.id;
+  }
+  for (const [recurso, itens] of Object.entries(KITS)) {
+    await prisma.recursoAcessorio.deleteMany({ where: { recursoId: recursos[recurso]! } });
+    await prisma.recursoAcessorio.createMany({
+      data: itens.map(([nome, obrigatorio]) => ({
+        recursoId: recursos[recurso]!,
+        acessorioId: acessorios[nome]!,
+        obrigatorio,
+      })),
+    });
   }
 
   await prisma.solicitacao.deleteMany({

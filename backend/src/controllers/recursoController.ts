@@ -4,6 +4,16 @@ import { prisma } from '../lib/prisma';
 import { uploadFoto, caminhoPublico, apagarFoto } from '../lib/upload';
 import { STATUS_OCUPANTES } from '../lib/status';
 import { buscarReservasFuturas } from './solicitacaoController';
+import { buscarKit } from './acessorioController';
+
+// Kit do recurso para a listagem; quem não é admin não vê acessórios inativos
+function incluirKit(isAdmin: boolean) {
+  return {
+    where: isAdmin ? {} : { acessorio: { ativo: true } },
+    include: { acessorio: { select: { id: true, nome: true, localizacao: true, ativo: true } } },
+    orderBy: [{ obrigatorio: 'desc' as const }, { acessorio: { nome: 'asc' as const } }],
+  };
+}
 
 type ReqComId = Request<{ id: string }>;
 
@@ -42,14 +52,16 @@ export async function listar(req: Request, res: Response) {
           },
           select: { id: true },
         },
+        acessorios: incluirKit(isAdmin),
       },
       orderBy: { nome: 'asc' },
     });
 
     return res.json(
-      recursos.map(({ solicitacoes, ...recurso }) => ({
+      recursos.map(({ solicitacoes, acessorios, ...recurso }) => ({
         ...recurso,
         ocupadoAgora: solicitacoes.length > 0,
+        acessorios: acessorios.map((a) => ({ ...a.acessorio, obrigatorio: a.obrigatorio })),
       }))
     );
   } catch (error) {
@@ -64,11 +76,12 @@ export async function buscarPorId(req: ReqComId, res: Response) {
   try {
     const recurso = await prisma.recurso.findUnique({ where: { id } });
 
-    if (!recurso || (!recurso.ativo && req.usuario?.perfil !== 'ADMIN')) {
+    const isAdmin = req.usuario?.perfil === 'ADMIN';
+    if (!recurso || (!recurso.ativo && !isAdmin)) {
       return res.status(404).json({ error: 'Recurso não encontrado.' });
     }
 
-    return res.json(recurso);
+    return res.json({ ...recurso, acessorios: await buscarKit(id, !isAdmin) });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao buscar recurso.' });

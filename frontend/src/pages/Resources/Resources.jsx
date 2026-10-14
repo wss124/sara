@@ -42,6 +42,8 @@ import {
 } from '../../services/recursoService';
 import { ESTADOS_RECURSO, ESTADOS_MANUAIS, recursoBloqueado } from '../../utils/estadoRecurso';
 import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
+import { listarAcessorios, definirKitRecurso } from '../../services/acessorioService';
+import KitEditor from './KitEditor';
 import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
 import './Resources.css';
 
@@ -82,6 +84,7 @@ function Resources() {
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [afetadas, setAfetadas] = useState(null);
+  const [acessorios, setAcessorios] = useState([]);
   const [form] = Form.useForm();
   const tipoNoForm = Form.useWatch('tipo', form);
 
@@ -137,6 +140,9 @@ function Resources() {
 
   const abrirModal = (recurso = null) => {
     setEditando(recurso);
+    listarAcessorios()
+      .then(setAcessorios)
+      .catch(() => message.error('Erro ao carregar acessórios.'));
     setNovaFoto(null);
     setRemoverFoto(false);
     form.setFieldsValue(
@@ -146,19 +152,21 @@ function Resources() {
             tipo: recurso.tipo,
             descricao: recurso.descricao,
             localizacao: recurso.localizacao,
+            kit: recurso.acessorios.map((a) => ({ acessorioId: a.id, obrigatorio: a.obrigatorio })),
           }
-        : { nome: '', tipo: 'SALA', descricao: '', localizacao: '' }
+        : { nome: '', tipo: 'SALA', descricao: '', localizacao: '', kit: [] }
     );
     setModalAberto(true);
   };
 
   const salvar = async () => {
-    const valores = await form.validateFields();
+    const { kit, ...valores } = await form.validateFields();
     setSalvando(true);
     try {
       const recurso = editando
         ? await atualizarRecurso(editando.id, valores)
         : await criarRecurso(valores);
+      await definirKitRecurso(recurso.id, kit);
 
       // Se só o envio da foto falhar, salvar de novo edita em vez de duplicar
       if (!editando) setEditando(recurso);
@@ -315,6 +323,14 @@ function Resources() {
                     </span>
                   )}
                   <p>{recurso.descricao || 'Sem descrição.'}</p>
+                  {recurso.acessorios.length > 0 && (
+                    <span className="resource-kit">
+                      Acompanha:{' '}
+                      {recurso.acessorios
+                        .map((a) => (a.obrigatorio ? a.nome : `${a.nome} (opcional)`))
+                        .join(', ')}
+                    </span>
+                  )}
 
                   <div className="resource-card-footer">
                     <span className="resource-type">{TIPOS[recurso.tipo].label}</span>
@@ -462,6 +478,13 @@ function Resources() {
           </Form.Item>
           <Form.Item name="descricao" label="Descrição">
             <Input.TextArea rows={3} placeholder="Capacidade, observações..." />
+          </Form.Item>
+          <Form.Item
+            name="kit"
+            label="Itens que acompanham"
+            extra="Obrigatórios saem sempre com o recurso; opcionais o professor escolhe no pedido."
+          >
+            <KitEditor acessorios={acessorios} />
           </Form.Item>
         </Form>
       </Modal>
