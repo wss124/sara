@@ -1,4 +1,4 @@
-// Popula o banco com dados de demonstração: um admin, um professor, uma aluna,
+// Popula o banco com dados de demonstração: um admin, dois professores,
 // cinco recursos e reservas em torno do horário atual. Pode ser executado de
 // novo antes de uma apresentação: as reservas dos usuários demo são recriadas
 // para que o dashboard sempre mostre um recurso "em uso agora".
@@ -13,7 +13,7 @@ const SENHA_DEMO = '123456';
 const USUARIOS = [
   { nome: 'Administrador SARA', email: 'admin@prp.uespi.br', perfil: 'ADMIN' },
   { nome: 'Carlos Lima', email: 'professor@prp.uespi.br', perfil: 'PROFESSOR' },
-  { nome: 'Ana Souza', email: 'aluna@aluno.uespi.br', perfil: 'ALUNO' },
+  { nome: 'Ana Souza', email: 'professora@prp.uespi.br', perfil: 'PROFESSOR' },
 ] as const;
 
 const RECURSOS = [
@@ -43,7 +43,7 @@ function amanha(hora: number) {
 async function main() {
   const senha = await bcrypt.hash(SENHA_DEMO, 10);
 
-  const [admin, professor, aluna] = await Promise.all(
+  const [admin, professor, professora] = await Promise.all(
     USUARIOS.map((u) =>
       prisma.usuario.upsert({
         where: { email: u.email },
@@ -61,7 +61,7 @@ async function main() {
   }
 
   await prisma.solicitacao.deleteMany({
-    where: { usuarioId: { in: [admin!.id, professor!.id, aluna!.id] } },
+    where: { usuarioId: { in: [admin!.id, professor!.id, professora!.id] } },
   });
 
   await prisma.solicitacao.createMany({
@@ -77,21 +77,21 @@ async function main() {
         observacao: 'Aula prática de Banco de Dados',
       },
       {
-        usuarioId: aluna!.id,
+        usuarioId: professora!.id,
         recursoId: recursos['Projetor Epson']!,
         dataInicio: horas(2),
         dataFim: horas(4),
         status: 'APROVADA',
         aprovadoPorId: admin!.id,
-        observacao: 'Ensaio da apresentação do seminário',
+        observacao: 'Apresentação de seminários da turma',
       },
       {
-        usuarioId: aluna!.id,
+        usuarioId: professora!.id,
         recursoId: recursos['Sala 204']!,
         dataInicio: amanha(14),
         dataFim: amanha(16),
         status: 'PENDENTE',
-        observacao: 'Grupo de estudos para a prova',
+        observacao: 'Aula de revisão para a prova',
       },
       {
         usuarioId: professor!.id,
@@ -102,13 +102,13 @@ async function main() {
         observacao: 'Aula de reposição',
       },
       {
-        usuarioId: aluna!.id,
+        usuarioId: professora!.id,
         recursoId: recursos['Auditório']!,
         dataInicio: amanha(9),
         dataFim: amanha(11),
         status: 'RECUSADA',
         aprovadoPorId: admin!.id,
-        observacao: 'Ensaio do centro acadêmico',
+        observacao: 'Palestra da semana acadêmica',
       },
     ],
   });

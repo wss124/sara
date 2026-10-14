@@ -1,5 +1,5 @@
 // Cria (ou promove) o primeiro administrador do sistema, já que o cadastro
-// público só gera contas de ALUNO. Uso:
+// público só gera contas de PROFESSOR. Uso:
 //   npm run criar-admin -- "Nome do Admin" admin@uespi.br senha123
 import '../env';
 import bcrypt from 'bcrypt';

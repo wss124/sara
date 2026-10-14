@@ -6,7 +6,6 @@ import { getUsuarioLogado } from '../../utils/format';
 import '../Requests/Requests.css';
 
 const PERFIS = [
-  { value: 'ALUNO', label: 'Aluno' },
   { value: 'PROFESSOR', label: 'Professor' },
   { value: 'ADMIN', label: 'Administrador' },
 ];
@@ -77,7 +76,7 @@ function Users() {
       <header className="page-header">
         <div>
           <h1>Usuários</h1>
-          <p>Todo cadastro entra como Aluno. Promova aqui os professores e administradores.</p>
+          <p>Todo cadastro entra como Professor. Promova aqui os administradores.</p>
         </div>
       </header>
 

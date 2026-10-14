@@ -1,15 +1,15 @@
 # SARA — Sistema de Alocação de Recursos Acadêmicos
 
 Sistema web para reserva de salas, laboratórios e equipamentos da UESPI, Campus Piripiri.
-Alunos e professores solicitam um recurso, o sistema bloqueia choques de horário, o
+Professores solicitam um recurso, o sistema bloqueia choques de horário, o
 administrador aprova ou recusa, e um dashboard mostra a ocupação em tempo real.
 
 Trabalho de Conclusão de Curso — Bacharelado em Ciência da Computação, UESPI.
 
 ## Funcionalidades
 
-- Cadastro restrito a e-mails institucionais (`@aluno.uespi.br` e `@prp.uespi.br`) e login com JWT
-- Perfis Aluno, Professor e Administrador; todo cadastro entra como Aluno e o admin promove os demais
+- Cadastro restrito a e-mails institucionais de professores (`@prp.uespi.br`) e login com JWT
+- Perfis Professor e Administrador; todo cadastro entra como Professor e o admin promove administradores
 - Cadastro e gestão de recursos (salas e equipamentos)
 - Solicitação de reserva com verificação de conflito de horário
 - Aprovação e recusa de solicitações pelo administrador
@@ -60,7 +60,7 @@ Criados pelo `npm run seed --prefix backend`, todos com a senha `123456`:
 | --- | --- |
 | Administrador | admin@prp.uespi.br |
 | Professor | professor@prp.uespi.br |
-| Aluno | aluna@aluno.uespi.br |
+| Professora | professora@prp.uespi.br |
 
 Rodar o seed de novo recria as reservas desses usuários em torno do horário atual (útil antes de uma apresentação).
 

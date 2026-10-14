@@ -10,8 +10,6 @@ import {
 } from '../../services/solicitacaoService';
 import { listarUsuarios } from '../../services/usuarioService';
 
-const PERFIS = { ALUNO: 'Aluno', PROFESSOR: 'Professor' };
-
 // Com `admin`, o modal vira "Nova reserva": o admin escolhe para quem é a
 // reserva (ou uso institucional) e ela já é registrada como aprovada.
 function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated }) {
@@ -139,7 +137,7 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
                   placeholder="Busque pelo nome ou e-mail"
                   options={usuarios.map((u) => ({
                     value: u.id,
-                    label: `${u.nome} (${PERFIS[u.perfil]}) · ${u.email}`,
+                    label: `${u.nome} · ${u.email}`,
                   }))}
                 />
               </Form.Item>

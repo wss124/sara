@@ -9,7 +9,6 @@ datasource db {
 }
 
 enum Perfil {
-  ALUNO
   PROFESSOR
   ADMIN
 }
@@ -30,7 +29,7 @@ model Usuario {
   nome      String
   email     String   @unique
   senha     String
-  perfil    Perfil   @default(ALUNO)
+  perfil    Perfil   @default(PROFESSOR)
   criadoEm  DateTime @default(now())
 
   solicitacoes      Solicitacao[] @relation("SolicitacoesDoUsuario")

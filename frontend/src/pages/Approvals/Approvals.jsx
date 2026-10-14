@@ -13,7 +13,7 @@ import { formatarPeriodo } from '../../utils/format';
 import { STATUS, ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
 
-const PERFIS = { ALUNO: 'Aluno', PROFESSOR: 'Professor', ADMIN: 'Administrador' };
+const PERFIS = { PROFESSOR: 'Professor', ADMIN: 'Administrador' };
 
 function Approvals() {
   const [solicitacoes, setSolicitacoes] = useState([]);

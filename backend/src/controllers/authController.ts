@@ -6,8 +6,8 @@ import { JWT_SECRET } from '../lib/jwt';
 import { DOMINIOS_PERMITIDOS, emailInstitucional } from '../lib/dominios';
 
 export async function register(req: Request, res: Response) {
-  // O perfil não vem do corpo: todo cadastro público nasce como ALUNO e só
-  // um administrador pode promover a conta (rota /usuarios/:id/perfil).
+  // O perfil não vem do corpo: todo cadastro público nasce como PROFESSOR e só
+  // um administrador pode promover a conta a ADMIN (rota /usuarios/:id/perfil).
   const { nome, senha } = req.body;
   const email = String(req.body.email ?? '').trim().toLowerCase();
 
