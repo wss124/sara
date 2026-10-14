@@ -1,3 +1,14 @@
+// Regra de negócio violada dentro de uma transação; o controller devolve
+// o status e a mensagem ao cliente.
+export class ErroNegocio extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
 // Nome da exclusion constraint criada na migration impede_reservas_sobrepostas
 const CONSTRAINT_SOBREPOSICAO = 'Solicitacao_sem_sobreposicao';
 

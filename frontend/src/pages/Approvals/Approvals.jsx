@@ -9,7 +9,7 @@ import {
   cancelarReserva,
 } from '../../services/solicitacaoService';
 import RequestModal from '../Requests/RequestModal';
-import { formatarPeriodo } from '../../utils/format';
+import { formatarPeriodo, descreverAcessorios } from '../../utils/format';
 import { STATUS, ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
 
@@ -135,6 +135,11 @@ function Approvals() {
                 <h3>{s.recurso.nome}</h3>
                 <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
                 <span className="request-meta">{descreverOrigem(s)}</span>
+                {s.acessorios?.length > 0 && (
+                  <span className="request-acessorios">
+                    Acompanha: {descreverAcessorios(s.acessorios)}
+                  </span>
+                )}
                 {s.observacao && <p>{s.observacao}</p>}
                 {s.aprovadoPor && s.status !== 'PENDENTE' && !s.lancadoPor && (
                   <span className="request-meta">

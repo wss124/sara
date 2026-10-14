@@ -3,6 +3,7 @@ import { Modal, Form, Select, DatePicker, Input, Segmented, message } from 'antd
 import dayjs from 'dayjs';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import TimeSlotGrid from './TimeSlotGrid';
+import AcessoriosDoPedido from './AcessoriosDoPedido';
 import { listarRecursos } from '../../services/recursoService';
 import {
   consultarOcupacao,
@@ -26,6 +27,7 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   const recursoId = Form.useWatch('recursoId', form);
   const data = Form.useWatch('data', form);
   const paraQuem = Form.useWatch('paraQuem', form);
+  const horario = Form.useWatch('horario', form);
   const institucional = admin && paraQuem === 'INSTITUCIONAL';
   const recursoSelecionado = recursos.find((r) => r.id === recursoId);
   const chave = recursoId && data ? `${recursoId}-${data.valueOf()}` : null;
@@ -72,6 +74,7 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
       dataInicio: inicio.toISOString(),
       dataFim: fim.toISOString(),
       observacao: valores.observacao,
+      acessorios: (valores.acessorios ?? []).map((id) => ({ id })),
     };
 
     setSalvando(true);
@@ -190,6 +193,12 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
             reservas={reservas}
           />
         </Form.Item>
+
+        {recursoSelecionado?.acessorios?.length > 0 && (
+          <Form.Item name="acessorios" label="Itens que acompanham">
+            <AcessoriosDoPedido recursoId={recursoId} periodo={horario} />
+          </Form.Item>
+        )}
 
         <Form.Item
           name="observacao"

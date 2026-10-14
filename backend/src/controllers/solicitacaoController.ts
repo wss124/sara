@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { violouSobreposicao } from '../lib/erros';
+import { violouSobreposicao, ErroNegocio } from '../lib/erros';
+import {
+  acessoriosEmFalta,
+  montarItensDoPedido,
+  travarAcessorios,
+  type ItemPedido,
+} from '../lib/estoqueAcessorios';
 import { STATUS_SOLICITACAO, STATUS_OCUPANTES, ANTECEDENCIA_RETIRADA_MIN } from '../lib/status';
 import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/enums';
 
@@ -15,7 +21,28 @@ const incluirDetalhes = {
   lancadoPor: { select: { id: true, nome: true } },
   retiradaRegistradaPor: { select: { id: true, nome: true } },
   devolucaoRegistradaPor: { select: { id: true, nome: true } },
+  acessorios: {
+    include: { acessorio: { select: { id: true, nome: true, localizacao: true } } },
+  },
 } as const;
+
+function mensagemEmFalta(nomes: string[]) {
+  return `Sem unidades livres nesse horário: ${nomes.join(', ')}.`;
+}
+
+// Dentro da transação: trava os acessórios e confere se ainda há unidades
+// livres para o período. Lança ErroNegocio se faltar algum.
+async function garantirAcessorios(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  itens: ItemPedido[],
+  inicio: Date,
+  fim: Date,
+  ignorarSolicitacaoId?: string
+) {
+  await travarAcessorios(tx, itens.map((i) => i.acessorioId));
+  const emFalta = await acessoriosEmFalta(tx, itens, inicio, fim, ignorarSolicitacaoId);
+  if (emFalta.length > 0) throw new ErroNegocio(409, mensagemEmFalta(emFalta));
+}
 
 function parseData(valor: unknown) {
   const data = new Date(String(valor));
@@ -55,13 +82,14 @@ const MOTIVO_BLOQUEIO: Partial<Record<string, string>> = {
 // Validações comuns à solicitação do usuário e à reserva lançada pelo admin.
 // Devolve o período já convertido ou a mensagem de erro com o status HTTP.
 type ResultadoValidacao =
-  | { ok: true; inicio: Date; fim: Date }
+  | { ok: true; inicio: Date; fim: Date; itens: ItemPedido[] }
   | { ok: false; status: number; error: string };
 
 async function validarPedido(
   recursoId: unknown,
   dataInicio: unknown,
-  dataFim: unknown
+  dataFim: unknown,
+  acessorios?: unknown
 ): Promise<ResultadoValidacao> {
   const inicio = parseData(dataInicio);
   const fim = parseData(dataFim);
@@ -88,11 +116,20 @@ async function validarPedido(
     return { ok: false, status: 409, error: 'O recurso já está reservado nesse horário.' };
   }
 
-  return { ok: true, inicio, fim };
+  const montagem = await montarItensDoPedido(recurso.id, acessorios);
+  if (!montagem.ok) {
+    return { ok: false, status: 400, error: montagem.error };
+  }
+  const emFalta = await acessoriosEmFalta(prisma, montagem.itens, inicio, fim);
+  if (emFalta.length > 0) {
+    return { ok: false, status: 409, error: mensagemEmFalta(emFalta) };
+  }
+
+  return { ok: true, inicio, fim, itens: montagem.itens };
 }
 
 export async function criar(req: Request, res: Response) {
-  const { recursoId, dataInicio, dataFim, observacao } = req.body;
+  const { recursoId, dataInicio, dataFim, observacao, acessorios } = req.body;
 
   // O admin não pede para si mesmo: ele lança reservas já aprovadas
   if (req.usuario?.perfil === 'ADMIN') {
@@ -102,11 +139,11 @@ export async function criar(req: Request, res: Response) {
   }
 
   try {
-    const validacao = await validarPedido(recursoId, dataInicio, dataFim);
+    const validacao = await validarPedido(recursoId, dataInicio, dataFim, acessorios);
     if (!validacao.ok) {
       return res.status(validacao.status).json({ error: validacao.error });
     }
-    const { inicio, fim } = validacao;
+    const { inicio, fim, itens } = validacao;
 
     const solicitacao = await prisma.solicitacao.create({
       data: {
@@ -115,6 +152,7 @@ export async function criar(req: Request, res: Response) {
         dataInicio: inicio,
         dataFim: fim,
         observacao: observacao?.trim() || null,
+        acessorios: { create: itens },
       },
       include: incluirDetalhes,
     });
@@ -129,7 +167,8 @@ export async function criar(req: Request, res: Response) {
 // Admin: registra uma reserva já aprovada, em nome de um usuário cadastrado
 // ou como uso institucional (prova, reunião, evento).
 export async function reservar(req: Request, res: Response) {
-  const { recursoId, dataInicio, dataFim, observacao, usuarioId, institucional } = req.body;
+  const { recursoId, dataInicio, dataFim, observacao, usuarioId, institucional, acessorios } =
+    req.body;
   const adminId = req.usuario!.id;
 
   if (institucional && !observacao?.trim()) {
@@ -147,25 +186,29 @@ export async function reservar(req: Request, res: Response) {
       }
     }
 
-    const validacao = await validarPedido(recursoId, dataInicio, dataFim);
+    const validacao = await validarPedido(recursoId, dataInicio, dataFim, acessorios);
     if (!validacao.ok) {
       return res.status(validacao.status).json({ error: validacao.error });
     }
-    const { inicio, fim } = validacao;
+    const { inicio, fim, itens } = validacao;
 
-    const reserva = await prisma.solicitacao.create({
-      data: {
-        recursoId,
-        usuarioId: institucional ? adminId : usuarioId,
-        dataInicio: inicio,
-        dataFim: fim,
-        observacao: observacao?.trim() || null,
-        status: 'APROVADA',
-        institucional: Boolean(institucional),
-        lancadoPorId: adminId,
-        aprovadoPorId: adminId,
-      },
-      include: incluirDetalhes,
+    const reserva = await prisma.$transaction(async (tx) => {
+      await garantirAcessorios(tx, itens, inicio, fim);
+      return tx.solicitacao.create({
+        data: {
+          recursoId,
+          usuarioId: institucional ? adminId : usuarioId,
+          dataInicio: inicio,
+          dataFim: fim,
+          observacao: observacao?.trim() || null,
+          status: 'APROVADA',
+          institucional: Boolean(institucional),
+          lancadoPorId: adminId,
+          aprovadoPorId: adminId,
+          acessorios: { create: itens },
+        },
+        include: incluirDetalhes,
+      });
     });
 
     // Pedidos pendentes no mesmo horário agora vão colidir na aprovação;
@@ -181,6 +224,9 @@ export async function reservar(req: Request, res: Response) {
 
     return res.status(201).json({ ...reserva, pendentesConflitantes });
   } catch (error) {
+    if (error instanceof ErroNegocio) {
+      return res.status(error.status).json({ error: error.message });
+    }
     if (violouSobreposicao(error)) {
       return res.status(409).json({ error: 'O recurso já está reservado nesse horário.' });
     }
@@ -284,7 +330,7 @@ export async function aprovar(req: ReqComId, res: Response) {
   try {
     const solicitacao = await prisma.solicitacao.findUnique({
       where: { id },
-      include: { recurso: { select: { estado: true } } },
+      include: { recurso: { select: { estado: true } }, acessorios: true },
     });
 
     if (!solicitacao) {
@@ -313,14 +359,28 @@ export async function aprovar(req: ReqComId, res: Response) {
       });
     }
 
-    const atualizada = await prisma.solicitacao.update({
-      where: { id },
-      data: { status: 'APROVADA', aprovadoPorId: req.usuario!.id },
-      include: incluirDetalhes,
+    // Os acessórios podem ter sido comprometidos com outra reserva aprovada
+    // depois que este pedido foi feito
+    const atualizada = await prisma.$transaction(async (tx) => {
+      await garantirAcessorios(
+        tx,
+        solicitacao.acessorios,
+        solicitacao.dataInicio,
+        solicitacao.dataFim,
+        solicitacao.id
+      );
+      return tx.solicitacao.update({
+        where: { id },
+        data: { status: 'APROVADA', aprovadoPorId: req.usuario!.id },
+        include: incluirDetalhes,
+      });
     });
 
     return res.json(atualizada);
   } catch (error) {
+    if (error instanceof ErroNegocio) {
+      return res.status(error.status).json({ error: error.message });
+    }
     if (violouSobreposicao(error)) {
       return res.status(409).json({
         error: 'Já existe uma reserva aprovada nesse horário. Recuse esta solicitação.',

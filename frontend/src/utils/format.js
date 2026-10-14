@@ -19,6 +19,13 @@ export function getUsuarioLogado() {
   }
 }
 
+// Ex.: "Extensão, Cabo HDMI (2)" a partir dos acessórios de uma solicitação
+export function descreverAcessorios(itens = []) {
+  return itens
+    .map((i) => (i.quantidade > 1 ? `${i.acessorio.nome} (${i.quantidade})` : i.acessorio.nome))
+    .join(', ');
+}
+
 // Quem está usando a reserva: o usuário ou, no uso institucional lançado
 // pelo admin, a finalidade descrita na observação
 export function responsavelPela(reserva) {

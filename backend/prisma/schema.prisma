@@ -86,7 +86,8 @@ model Acessorio {
   ativo       Boolean  @default(true)
   criadoEm    DateTime @default(now())
 
-  recursos RecursoAcessorio[]
+  recursos     RecursoAcessorio[]
+  solicitacoes SolicitacaoAcessorio[]
 }
 
 // Kit do recurso: quais acessórios o acompanham e se são obrigatórios
@@ -98,6 +99,17 @@ model RecursoAcessorio {
   obrigatorio Boolean   @default(false)
 
   @@id([recursoId, acessorioId])
+}
+
+// Acessórios que saem junto com uma reserva (obrigatórios + opcionais pedidos)
+model SolicitacaoAcessorio {
+  solicitacao   Solicitacao @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  solicitacaoId String
+  acessorio     Acessorio   @relation(fields: [acessorioId], references: [id])
+  acessorioId   String
+  quantidade    Int         @default(1)
+
+  @@id([solicitacaoId, acessorioId])
 }
 
 model Solicitacao {
@@ -132,6 +144,8 @@ model Solicitacao {
   observacaoDevolucao      String?
   canceladoEm              DateTime?
   motivoCancelamento       String?
+
+  acessorios SolicitacaoAcessorio[]
 
   criadoEm      DateTime          @default(now())
   atualizadoEm  DateTime          @updatedAt

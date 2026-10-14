@@ -7,7 +7,7 @@ import {
   listarMinhasSolicitacoes,
   cancelarSolicitacao,
 } from '../../services/solicitacaoService';
-import { formatarPeriodo } from '../../utils/format';
+import { formatarPeriodo, descreverAcessorios } from '../../utils/format';
 import RequestModal from './RequestModal';
 import { STATUS, ICONES_TIPO } from './constants';
 import './Requests.css';
@@ -119,6 +119,11 @@ function Requests() {
                 {s.recurso.localizacao && (
                   <span className="request-location">
                     <EnvironmentOutlined /> Retirar em: {s.recurso.localizacao}
+                  </span>
+                )}
+                {s.acessorios?.length > 0 && (
+                  <span className="request-acessorios">
+                    Acompanha: {descreverAcessorios(s.acessorios)}
                   </span>
                 )}
                 {s.observacao && <p>{s.observacao}</p>}

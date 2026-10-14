@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { autenticar, somenteAdmin } from '../middlewares/auth';
-import { listar, criar, atualizar, remover } from '../controllers/acessorioController';
+import {
+  listar,
+  criar,
+  atualizar,
+  remover,
+  disponibilidade,
+} from '../controllers/acessorioController';
 
 const router = Router();
 
@@ -8,6 +14,7 @@ const router = Router();
 router.use(autenticar);
 
 router.get('/', listar);
+router.get('/disponibilidade', disponibilidade);
 router.post('/', somenteAdmin, criar);
 router.put('/:id', somenteAdmin, atualizar);
 router.delete('/:id', somenteAdmin, remover);

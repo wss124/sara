@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { unidadesLivres } from '../lib/estoqueAcessorios';
 
 type ReqComId = Request<{ id: string }>;
 
@@ -96,14 +97,23 @@ export async function atualizar(req: ReqComId, res: Response) {
   }
 }
 
+// Acessório que já saiu em alguma reserva fica no histórico: deve ser desativado
 export async function remover(req: ReqComId, res: Response) {
   const { id } = req.params;
 
   try {
-    const acessorio = await prisma.acessorio.findUnique({ where: { id } });
+    const acessorio = await prisma.acessorio.findUnique({
+      where: { id },
+      include: { _count: { select: { solicitacoes: true } } },
+    });
 
     if (!acessorio) {
       return res.status(404).json({ error: 'Acessório não encontrado.' });
+    }
+    if (acessorio._count.solicitacoes > 0) {
+      return res.status(409).json({
+        error: 'Este acessório já foi usado em reservas. Desative-o em vez de excluir.',
+      });
     }
 
     await prisma.acessorio.delete({ where: { id } });
@@ -152,6 +162,32 @@ export async function definirKit(req: ReqComId, res: Response) {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao salvar os acessórios do recurso.' });
+  }
+}
+
+// Kit do recurso com as unidades livres de cada item num período, para o
+// formulário de pedido desabilitar o que não está disponível.
+export async function disponibilidade(req: Request, res: Response) {
+  const recursoId = String(req.query.recursoId ?? '');
+  const inicio = new Date(String(req.query.inicio));
+  const fim = new Date(String(req.query.fim));
+
+  if (!recursoId || Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) {
+    return res.status(400).json({ error: 'Informe recursoId, inicio e fim.' });
+  }
+
+  try {
+    const kit = await buscarKit(recursoId, true);
+    const livres = await unidadesLivres(
+      prisma,
+      kit.map((a) => a.id),
+      inicio,
+      fim
+    );
+    return res.json(kit.map((a) => ({ ...a, livres: livres.get(a.id)?.livres ?? 0 })));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao consultar os acessórios.' });
   }
 }
 

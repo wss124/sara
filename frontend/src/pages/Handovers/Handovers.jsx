@@ -10,7 +10,7 @@ import dayjs from 'dayjs';
 import { carregarMovimentacoes, registrarRetirada } from '../../services/solicitacaoService';
 import DevolucaoModal from './DevolucaoModal';
 import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
-import { formatarPeriodo, responsavelPela } from '../../utils/format';
+import { formatarPeriodo, responsavelPela, descreverAcessorios } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
 import './Handovers.css';
@@ -49,6 +49,11 @@ function Secao({ titulo, descricao, vazio, itens, renderAcoes, renderDetalhe }) 
                 {s.recurso.localizacao && (
                   <span className="request-location">
                     <EnvironmentOutlined /> {s.recurso.localizacao}
+                  </span>
+                )}
+                {s.acessorios?.length > 0 && (
+                  <span className="request-acessorios">
+                    Acompanha: {descreverAcessorios(s.acessorios)}
                   </span>
                 )}
                 {renderDetalhe?.(s)}
