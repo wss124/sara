@@ -10,25 +10,27 @@ async function pedido(usuarioId: string, recursoId: string, inicio: number, fim:
 describe('aprovação de solicitações', () => {
   beforeEach(limparBanco);
 
-  it('duas aprovações simultâneas do mesmo horário: só uma passa', async () => {
-    const [admin1, admin2, prof1, prof2] = await Promise.all([
-      criarUsuario('ADMIN'),
-      criarUsuario('ADMIN'),
-      criarUsuario(),
-      criarUsuario(),
-    ]);
-    const recurso = await criarRecurso();
-    const a = await pedido(prof1.id, recurso.id, 48, 50);
-    const b = await pedido(prof2.id, recurso.id, 49, 51);
+  it('aprovações simultâneas de horários sobrepostos: só uma passa', async () => {
+    // Cinco admins aprovam ao mesmo tempo cinco pedidos que se sobrepõem.
+    // Repetido algumas vezes porque a corrida nem sempre acontece.
+    for (let rodada = 0; rodada < 5; rodada++) {
+      await limparBanco();
+      const admins = await Promise.all([1, 2, 3, 4, 5].map(() => criarUsuario('ADMIN')));
+      const prof = await criarUsuario();
+      const recurso = await criarRecurso();
+      const pedidos = await Promise.all(
+        admins.map((_, i) => pedido(prof.id, recurso.id, 48 + i * 0.1, 50))
+      );
 
-    const respostas = await Promise.all([
-      api().patch(`/solicitacoes/${a.id}/aprovar`).set('Authorization', admin1.auth),
-      api().patch(`/solicitacoes/${b.id}/aprovar`).set('Authorization', admin2.auth),
-    ]);
+      const respostas = await Promise.all(
+        pedidos.map((p, i) =>
+          api().patch(`/solicitacoes/${p.id}/aprovar`).set('Authorization', admins[i]!.auth)
+        )
+      );
 
-    expect(respostas.map((r) => r.status).sort()).toEqual([200, 409]);
-    const aprovadas = await prisma.solicitacao.count({ where: { status: 'APROVADA' } });
-    expect(aprovadas).toBe(1);
+      expect(respostas.map((r) => r.status).sort()).toEqual([200, 409, 409, 409, 409]);
+      expect(await prisma.solicitacao.count({ where: { status: 'APROVADA' } })).toBe(1);
+    }
   });
 
   it('reservas encostadas (fim = início) não conflitam', async () => {
