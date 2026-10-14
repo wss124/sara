@@ -141,6 +141,13 @@
   font-weight: 700;
   color: #333;
 }
+.resource-location {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2b5797;
+}
 .resource-card p {
   flex: 1;
   margin: 0 0 12px;

@@ -95,6 +95,15 @@
   font-size: 13px;
   color: #777;
 }
+.request-location {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2b5797;
+}
+.request-location-hint {
+  margin: -16px 0 16px;
+}
 .request-meta {
   display: block;
   font-size: 12px;

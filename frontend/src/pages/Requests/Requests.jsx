@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Segmented, Popconfirm, Empty, Spin, message } from 'antd';
-import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
+import { PlusOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import {
   listarMinhasSolicitacoes,
   cancelarSolicitacao,
@@ -112,6 +112,11 @@ function Requests() {
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
                 <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
+                {s.recurso.localizacao && (
+                  <span className="request-location">
+                    <EnvironmentOutlined /> Retirar em: {s.recurso.localizacao}
+                  </span>
+                )}
                 {s.observacao && <p>{s.observacao}</p>}
               </div>
 

@@ -28,6 +28,7 @@ import {
   CalendarOutlined,
   CameraOutlined,
   ToolOutlined,
+  EnvironmentOutlined,
 } from '@ant-design/icons';
 import {
   listarRecursos,
@@ -138,8 +139,13 @@ function Resources() {
     setRemoverFoto(false);
     form.setFieldsValue(
       recurso
-        ? { nome: recurso.nome, tipo: recurso.tipo, descricao: recurso.descricao }
-        : { nome: '', tipo: 'SALA', descricao: '' }
+        ? {
+            nome: recurso.nome,
+            tipo: recurso.tipo,
+            descricao: recurso.descricao,
+            localizacao: recurso.localizacao,
+          }
+        : { nome: '', tipo: 'SALA', descricao: '', localizacao: '' }
     );
     setModalAberto(true);
   };
@@ -298,6 +304,11 @@ function Resources() {
                   </div>
 
                   <h3>{recurso.nome}</h3>
+                  {recurso.localizacao && (
+                    <span className="resource-location">
+                      <EnvironmentOutlined /> {recurso.localizacao}
+                    </span>
+                  )}
                   <p>{recurso.descricao || 'Sem descrição.'}</p>
 
                   <div className="resource-card-footer">
@@ -430,8 +441,14 @@ function Resources() {
               ]}
             />
           </Form.Item>
+          <Form.Item name="localizacao" label="Localização">
+            <Input
+              prefix={<EnvironmentOutlined />}
+              placeholder="Onde fica ou onde retirar. Ex.: Dispensa do Bloco B"
+            />
+          </Form.Item>
           <Form.Item name="descricao" label="Descrição">
-            <Input.TextArea rows={3} placeholder="Capacidade, localização, observações..." />
+            <Input.TextArea rows={3} placeholder="Capacidade, observações..." />
           </Form.Item>
         </Form>
       </Modal>

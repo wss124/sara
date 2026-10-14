@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Form, Select, DatePicker, Input, Segmented, message } from 'antd';
 import dayjs from 'dayjs';
+import { EnvironmentOutlined } from '@ant-design/icons';
 import TimeSlotGrid from './TimeSlotGrid';
 import { listarRecursos } from '../../services/recursoService';
 import {
@@ -26,6 +27,7 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   const data = Form.useWatch('data', form);
   const paraQuem = Form.useWatch('paraQuem', form);
   const institucional = admin && paraQuem === 'INSTITUCIONAL';
+  const recursoSelecionado = recursos.find((r) => r.id === recursoId);
   const chave = recursoId && data ? `${recursoId}-${data.valueOf()}` : null;
   const reservas = chave && ocupacao.chave === chave ? ocupacao.lista : null;
 
@@ -162,6 +164,12 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
             }))}
           />
         </Form.Item>
+
+        {recursoSelecionado?.localizacao && (
+          <p className="request-location request-location-hint">
+            <EnvironmentOutlined /> Retirada em: {recursoSelecionado.localizacao}
+          </p>
+        )}
 
         <Form.Item name="data" label="Data" rules={[{ required: true, message: 'Escolha a data.' }]}>
           <DatePicker

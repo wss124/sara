@@ -74,7 +74,7 @@ export async function buscarPorId(req: ReqComId, res: Response) {
 }
 
 export async function criar(req: Request, res: Response) {
-  const { nome, tipo, descricao } = req.body;
+  const { nome, tipo, descricao, localizacao } = req.body;
 
   if (!nome?.trim() || !TIPOS_VALIDOS.includes(tipo)) {
     return res.status(400).json({ error: 'Informe o nome e um tipo válido (SALA ou EQUIPAMENTO).' });
@@ -82,7 +82,12 @@ export async function criar(req: Request, res: Response) {
 
   try {
     const recurso = await prisma.recurso.create({
-      data: { nome: nome.trim(), tipo, descricao: descricao?.trim() || null },
+      data: {
+        nome: nome.trim(),
+        tipo,
+        descricao: descricao?.trim() || null,
+        localizacao: localizacao?.trim() || null,
+      },
     });
 
     return res.status(201).json(recurso);
@@ -94,7 +99,7 @@ export async function criar(req: Request, res: Response) {
 
 export async function atualizar(req: ReqComId, res: Response) {
   const { id } = req.params;
-  const { nome, tipo, descricao, ativo } = req.body;
+  const { nome, tipo, descricao, localizacao, ativo } = req.body;
 
   if (nome !== undefined && !nome?.trim()) {
     return res.status(400).json({ error: 'O nome não pode ficar vazio.' });
@@ -116,6 +121,7 @@ export async function atualizar(req: ReqComId, res: Response) {
         ...(nome !== undefined ? { nome: nome.trim() } : {}),
         ...(tipo !== undefined ? { tipo } : {}),
         ...(descricao !== undefined ? { descricao: descricao?.trim() || null } : {}),
+        ...(localizacao !== undefined ? { localizacao: localizacao?.trim() || null } : {}),
         ...(typeof ativo === 'boolean' ? { ativo } : {}),
       },
     });

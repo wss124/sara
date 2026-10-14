@@ -51,6 +51,8 @@ model Recurso {
   nome       String
   tipo       TipoRecurso
   descricao  String?
+  // Onde o recurso fica ou deve ser retirado (ex.: "Dispensa do Bloco B")
+  localizacao String?
   foto       String?
   ativo      Boolean     @default(true)
   estado     EstadoRecurso @default(DISPONIVEL)

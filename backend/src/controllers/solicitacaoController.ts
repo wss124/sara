@@ -7,7 +7,7 @@ type ReqComId = Request<{ id: string }>;
 const STATUS_VALIDOS = ['PENDENTE', 'APROVADA', 'RECUSADA'];
 
 const incluirDetalhes = {
-  recurso: { select: { id: true, nome: true, tipo: true } },
+  recurso: { select: { id: true, nome: true, tipo: true, localizacao: true } },
   usuario: { select: { id: true, nome: true, email: true, perfil: true } },
   aprovadoPor: { select: { id: true, nome: true } },
   lancadoPor: { select: { id: true, nome: true } },
