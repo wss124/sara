@@ -29,6 +29,13 @@ enum EstadoRecurso {
 
 // Ciclo da reserva: PENDENTE -> APROVADA -> EM_ANDAMENTO (retirada)
 // -> CONCLUIDA (devolução). RECUSADA e CANCELADA encerram o pedido sem uso.
+// Como o recurso voltou na devolução
+enum CondicaoDevolucao {
+  OK
+  COM_DEFEITO
+  INCOMPLETO
+}
+
 enum StatusSolicitacao {
   PENDENTE
   APROVADA
@@ -96,7 +103,10 @@ model Solicitacao {
   devolvidoEm              DateTime?
   devolucaoRegistradaPor   Usuario?  @relation("DevolucoesRegistradas", fields: [devolucaoRegistradaPorId], references: [id])
   devolucaoRegistradaPorId String?
+  condicaoDevolucao        CondicaoDevolucao?
+  observacaoDevolucao      String?
   canceladoEm              DateTime?
+  motivoCancelamento       String?
 
   criadoEm      DateTime          @default(now())
   atualizadoEm  DateTime          @updatedAt

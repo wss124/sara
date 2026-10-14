@@ -122,6 +122,15 @@ function Requests() {
                   </span>
                 )}
                 {s.observacao && <p>{s.observacao}</p>}
+                {s.motivoCancelamento && (
+                  <span className="request-meta">Cancelada pelo administrador: {s.motivoCancelamento}</span>
+                )}
+                {s.devolvidoEm && (
+                  <span className="request-meta">
+                    Devolvido em {dayjs(s.devolvidoEm).format('DD/MM HH:mm')}
+                    {s.observacaoDevolucao && ` · ${s.observacaoDevolucao}`}
+                  </span>
+                )}
               </div>
 
               <div className="request-side">

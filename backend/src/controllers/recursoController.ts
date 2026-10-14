@@ -3,6 +3,7 @@ import multer from 'multer';
 import { prisma } from '../lib/prisma';
 import { uploadFoto, caminhoPublico, apagarFoto } from '../lib/upload';
 import { STATUS_OCUPANTES } from '../lib/status';
+import { buscarReservasFuturas } from './solicitacaoController';
 
 type ReqComId = Request<{ id: string }>;
 
@@ -161,8 +162,9 @@ export async function alterarEstado(req: ReqComId, res: Response) {
       where: { id },
       data: { estado: estado as EstadoManual },
     });
+    const reservasAfetadas = estado === 'DISPONIVEL' ? [] : await buscarReservasFuturas(id);
 
-    return res.json(atualizado);
+    return res.json({ ...atualizado, reservasAfetadas });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao alterar o estado do recurso.' });

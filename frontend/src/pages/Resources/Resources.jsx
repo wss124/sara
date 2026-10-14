@@ -41,6 +41,7 @@ import {
   alterarEstadoRecurso,
 } from '../../services/recursoService';
 import { ESTADOS_RECURSO, ESTADOS_MANUAIS, recursoBloqueado } from '../../utils/estadoRecurso';
+import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
 import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
 import './Resources.css';
 
@@ -80,6 +81,7 @@ function Resources() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [afetadas, setAfetadas] = useState(null);
   const [form] = Form.useForm();
   const tipoNoForm = Form.useWatch('tipo', form);
 
@@ -206,9 +208,12 @@ function Resources() {
 
   const mudarEstado = async (recurso, estado) => {
     try {
-      await alterarEstadoRecurso(recurso.id, estado);
+      const resultado = await alterarEstadoRecurso(recurso.id, estado);
       message.success(`${recurso.nome}: ${ESTADOS_RECURSO[estado].label.toLowerCase()}.`);
       carregar();
+      if (resultado.reservasAfetadas?.length) {
+        setAfetadas({ recurso: recurso.nome, reservas: resultado.reservasAfetadas });
+      }
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao alterar o estado.');
     }
@@ -391,6 +396,14 @@ function Resources() {
             );
           })}
         </Row>
+      )}
+
+      {afetadas && (
+        <ReservasAfetadasModal
+          recurso={afetadas.recurso}
+          reservas={afetadas.reservas}
+          onClose={() => setAfetadas(null)}
+        />
       )}
 
       <Modal

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Popconfirm, Empty, Spin, Tooltip, message } from 'antd';
+import { Button, Empty, Spin, Tooltip, message } from 'antd';
 import {
   ExportOutlined,
   ImportOutlined,
@@ -7,11 +7,9 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import {
-  carregarMovimentacoes,
-  registrarRetirada,
-  registrarDevolucao,
-} from '../../services/solicitacaoService';
+import { carregarMovimentacoes, registrarRetirada } from '../../services/solicitacaoService';
+import DevolucaoModal from './DevolucaoModal';
+import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
 import { formatarPeriodo, responsavelPela } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
@@ -69,6 +67,8 @@ function Handovers() {
   const [dados, setDados] = useState(null);
   const [atualizando, setAtualizando] = useState(false);
   const [processando, setProcessando] = useState(null);
+  const [devolvendo, setDevolvendo] = useState(null);
+  const [afetadas, setAfetadas] = useState(null);
 
   const carregar = () => {
     setAtualizando(true);
@@ -159,18 +159,9 @@ function Handovers() {
           </span>
         )}
         renderAcoes={(s) => (
-          <Popconfirm
-            title="Registrar devolução?"
-            okText="Registrar"
-            cancelText="Voltar"
-            onConfirm={() =>
-              executar(s.id, () => registrarDevolucao(s.id), `${s.recurso.nome} devolvido.`)
-            }
-          >
-            <Button icon={<ImportOutlined />} loading={processando === s.id}>
-              Registrar devolução
-            </Button>
-          </Popconfirm>
+          <Button icon={<ImportOutlined />} onClick={() => setDevolvendo(s)}>
+            Registrar devolução
+          </Button>
         )}
       />
 
@@ -180,12 +171,41 @@ function Handovers() {
         vazio="Nenhuma devolução registrada hoje."
         itens={dados.devolvidasHoje}
         renderDetalhe={(s) => (
-          <span className="request-meta">
-            Retirado às {hora(s.retiradoEm)} · devolvido às {hora(s.devolvidoEm)}
-            {s.devolucaoRegistradaPor && ` (recebido por ${s.devolucaoRegistradaPor.nome})`}
-          </span>
+          <>
+            <span className="request-meta">
+              Retirado às {hora(s.retiradoEm)} · devolvido às {hora(s.devolvidoEm)}
+              {s.devolucaoRegistradaPor && ` (recebido por ${s.devolucaoRegistradaPor.nome})`}
+            </span>
+            {s.condicaoDevolucao && s.condicaoDevolucao !== 'OK' && (
+              <span className={`handover-tag handover-tag-${s.condicaoDevolucao.toLowerCase()}`}>
+                {s.condicaoDevolucao === 'COM_DEFEITO' ? 'Com defeito' : 'Incompleto'}
+                {s.observacaoDevolucao && ` · ${s.observacaoDevolucao}`}
+              </span>
+            )}
+          </>
         )}
       />
+
+      {devolvendo && (
+        <DevolucaoModal
+          reserva={devolvendo}
+          onClose={() => setDevolvendo(null)}
+          onDone={(resultado) => {
+            setDevolvendo(null);
+            carregar();
+            if (resultado.reservasAfetadas?.length) {
+              setAfetadas({ recurso: resultado.recurso.nome, reservas: resultado.reservasAfetadas });
+            }
+          }}
+        />
+      )}
+      {afetadas && (
+        <ReservasAfetadasModal
+          recurso={afetadas.recurso}
+          reservas={afetadas.reservas}
+          onClose={() => setAfetadas(null)}
+        />
+      )}
     </div>
   );
 }

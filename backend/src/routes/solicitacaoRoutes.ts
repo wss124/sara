@@ -13,6 +13,7 @@ import {
   registrarRetirada,
   registrarDevolucao,
   movimentacoes,
+  cancelarPeloAdmin,
 } from '../controllers/solicitacaoController';
 
 const router = Router();
@@ -30,6 +31,7 @@ router.get('/', somenteAdmin, listarTodas);
 router.get('/movimentacoes', somenteAdmin, movimentacoes);
 router.patch('/:id/retirada', somenteAdmin, registrarRetirada);
 router.patch('/:id/devolucao', somenteAdmin, registrarDevolucao);
+router.patch('/:id/cancelamento', somenteAdmin, cancelarPeloAdmin);
 router.patch('/:id/aprovar', somenteAdmin, aprovar);
 router.patch('/:id/recusar', somenteAdmin, recusar);
 router.post('/reservas', somenteAdmin, reservar);

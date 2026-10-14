@@ -2,7 +2,9 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { violouSobreposicao } from '../lib/erros';
 import { STATUS_SOLICITACAO, STATUS_OCUPANTES, ANTECEDENCIA_RETIRADA_MIN } from '../lib/status';
-import type { StatusSolicitacao } from '../generated/prisma/enums';
+import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/enums';
+
+const CONDICOES_DEVOLUCAO = ['OK', 'COM_DEFEITO', 'INCOMPLETO'];
 
 type ReqComId = Request<{ id: string }>;
 
@@ -31,6 +33,16 @@ function buscarConflito(recursoId: string, inicio: Date, fim: Date, ignorarId?: 
       dataFim: { gt: inicio },
       ...(ignorarId ? { id: { not: ignorarId } } : {}),
     },
+  });
+}
+
+// Reservas aprovadas ainda não iniciadas de um recurso. Usado quando ele
+// entra em manutenção, para o admin avisar ou cancelar quem seria afetado.
+export function buscarReservasFuturas(recursoId: string) {
+  return prisma.solicitacao.findMany({
+    where: { recursoId, status: 'APROVADA', dataFim: { gt: new Date() } },
+    include: incluirDetalhes,
+    orderBy: { dataInicio: 'asc' },
   });
 }
 
@@ -381,6 +393,41 @@ export async function cancelar(req: ReqComId, res: Response) {
   }
 }
 
+// Admin: cancela uma reserva aprovada de qualquer professor (ex.: recurso foi
+// para manutenção). O motivo fica registrado e é mostrado ao professor.
+export async function cancelarPeloAdmin(req: ReqComId, res: Response) {
+  const { id } = req.params;
+  const motivo = String(req.body?.motivo ?? '').trim();
+
+  if (!motivo) {
+    return res.status(400).json({ error: 'Informe o motivo do cancelamento.' });
+  }
+
+  try {
+    const reserva = await prisma.solicitacao.findUnique({ where: { id } });
+
+    if (!reserva) {
+      return res.status(404).json({ error: 'Reserva não encontrada.' });
+    }
+    if (reserva.status !== 'APROVADA' && reserva.status !== 'PENDENTE') {
+      return res.status(409).json({
+        error: 'Só é possível cancelar pedidos pendentes ou reservas ainda não retiradas.',
+      });
+    }
+
+    const cancelada = await prisma.solicitacao.update({
+      where: { id },
+      data: { status: 'CANCELADA', canceladoEm: new Date(), motivoCancelamento: motivo },
+      include: incluirDetalhes,
+    });
+
+    return res.json(cancelada);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao cancelar a reserva.' });
+  }
+}
+
 // Admin: entrega o recurso ao responsável. A reserva passa a EM_ANDAMENTO e o
 // recurso a EM_USO, na mesma transação.
 export async function registrarRetirada(req: ReqComId, res: Response) {
@@ -436,10 +483,21 @@ export async function registrarRetirada(req: ReqComId, res: Response) {
   }
 }
 
-// Admin: recebe o recurso de volta. A reserva é concluída e o recurso volta a
-// ficar disponível. Uma devolução antecipada libera o restante do horário.
+// Admin: recebe o recurso de volta e informa como ele voltou. Com defeito, o
+// recurso vai para manutenção e a resposta lista as reservas futuras afetadas
+// para o admin decidir o que fazer. Uma devolução antecipada libera o
+// restante do horário.
 export async function registrarDevolucao(req: ReqComId, res: Response) {
   const { id } = req.params;
+  const condicao = req.body?.condicao ?? 'OK';
+  const observacao = String(req.body?.observacao ?? '').trim();
+
+  if (!CONDICOES_DEVOLUCAO.includes(condicao)) {
+    return res.status(400).json({ error: 'Condição inválida: use OK, COM_DEFEITO ou INCOMPLETO.' });
+  }
+  if (condicao !== 'OK' && !observacao) {
+    return res.status(400).json({ error: 'Descreva o problema encontrado na devolução.' });
+  }
 
   try {
     const reserva = await prisma.solicitacao.findUnique({ where: { id } });
@@ -458,13 +516,21 @@ export async function registrarDevolucao(req: ReqComId, res: Response) {
           status: 'CONCLUIDA',
           devolvidoEm: new Date(),
           devolucaoRegistradaPorId: req.usuario!.id,
+          condicaoDevolucao: condicao as CondicaoDevolucao,
+          observacaoDevolucao: observacao || null,
         },
         include: incluirDetalhes,
       }),
-      prisma.recurso.update({ where: { id: reserva.recursoId }, data: { estado: 'DISPONIVEL' } }),
+      prisma.recurso.update({
+        where: { id: reserva.recursoId },
+        data: { estado: condicao === 'COM_DEFEITO' ? 'EM_MANUTENCAO' : 'DISPONIVEL' },
+      }),
     ]);
 
-    return res.json(atualizada);
+    const reservasAfetadas =
+      condicao === 'COM_DEFEITO' ? await buscarReservasFuturas(reserva.recursoId) : [];
+
+    return res.json({ ...atualizada, reservasAfetadas });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao registrar a devolução.' });

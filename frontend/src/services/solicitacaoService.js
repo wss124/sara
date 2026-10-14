@@ -57,6 +57,11 @@ export async function registrarDevolucao(id, dados = {}) {
   return response.data;
 }
 
+export async function cancelarPeloAdmin(id, motivo) {
+  const response = await api.patch(`/solicitacoes/${id}/cancelamento`, { motivo });
+  return response.data;
+}
+
 export async function cancelarReserva(id) {
   await api.delete(`/solicitacoes/reservas/${id}`);
 }

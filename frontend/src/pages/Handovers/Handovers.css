@@ -44,6 +44,14 @@
   font-size: 12px;
   font-weight: 600;
 }
+.handover-tag-com_defeito {
+  color: #b5462b;
+  background: #fbe9e4;
+}
+.handover-tag-incompleto {
+  color: #b7862a;
+  background: #b7862a1f;
+}
 .handover-tag-atrasado {
   color: #b23b3b;
   background: #b23b3b1a;
