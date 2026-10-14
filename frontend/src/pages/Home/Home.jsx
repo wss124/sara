@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Progress, Segmented, Empty, Spin, message } from 'antd';
+import { Row, Col, Progress, Segmented, Empty, Spin, Alert, Button, message } from 'antd';
 import {
   AppstoreOutlined,
   FieldTimeOutlined,
@@ -8,6 +8,7 @@ import {
   ClockCircleOutlined,
   AuditOutlined,
   ReloadOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { carregarDashboard } from '../../services/dashboardService';
@@ -23,7 +24,29 @@ const FILTROS = [
   { label: 'Todos', value: 'TODOS' },
   { label: 'Em uso', value: 'OCUPADOS' },
   { label: 'Livres', value: 'LIVRES' },
+  { label: 'Manutenção', value: 'MANUTENCAO' },
 ];
+
+// Classe do card e texto principal de cada situação vinda da API
+const SITUACOES = {
+  LIVRE: { className: 'is-free', texto: () => 'Disponível agora' },
+  AGUARDANDO_RETIRADA: { className: 'is-waiting', texto: () => 'Reservado, aguardando retirada' },
+  EM_USO: { className: 'is-busy', texto: (r) => `Em uso até ${hora(r.atual.dataFim)}` },
+  ATRASADO: {
+    className: 'is-late',
+    texto: (r) => `Devolução atrasada (era até ${hora(r.atual.dataFim)})`,
+  },
+  EM_MANUTENCAO: { className: 'is-maintenance', texto: () => 'Em manutenção' },
+  INDISPONIVEL: { className: 'is-maintenance', texto: () => 'Indisponível' },
+};
+
+// Selo da reserva na agenda do dia
+function seloDaAgenda(reserva) {
+  if (reserva.status === 'CONCLUIDA') return 'Devolvido';
+  if (reserva.status === 'EM_ANDAMENTO') return 'Em uso';
+  if (dayjs().isAfter(reserva.dataInicio)) return 'Aguardando retirada';
+  return null;
+}
 
 function hora(data) {
   return dayjs(data).format('HH:mm');
@@ -71,31 +94,30 @@ function Home() {
   }
 
   const { recursos, minhas, pendentesGerais, ocupacao, reservasHoje } = dados;
-  const livres = recursos.total - recursos.ocupados;
   const taxa = recursos.total ? Math.round((recursos.ocupados / recursos.total) * 100) : 0;
 
   const stats = [
     {
       title: 'Recursos livres agora',
-      value: livres,
+      value: recursos.livres,
       icon: <AppstoreOutlined />,
       color: '#2b5797',
       to: '/resources',
     },
     {
-      title: 'Recursos em uso agora',
+      title: 'Em uso ou reservados agora',
       value: recursos.ocupados,
       icon: <FieldTimeOutlined />,
       color: '#14305c',
-      to: '/resources',
+      to: isAdmin ? '/handovers' : '/resources',
     },
     isAdmin
       ? {
-          title: 'Reservas de hoje',
-          value: reservasHoje.length,
-          icon: <CheckCircleOutlined />,
-          color: '#2f7d55',
-          to: '/approvals',
+          title: 'Em manutenção ou indisponíveis',
+          value: recursos.emManutencao + recursos.indisponiveis,
+          icon: <ToolOutlined />,
+          color: '#b5462b',
+          to: '/resources',
         }
       : {
           title: 'Minhas reservas aprovadas',
@@ -123,7 +145,8 @@ function Home() {
 
   const ocupacaoFiltrada = ocupacao.filter((r) => {
     if (filtro === 'OCUPADOS') return r.ocupadoAgora;
-    if (filtro === 'LIVRES') return !r.ocupadoAgora;
+    if (filtro === 'LIVRES') return r.situacao === 'LIVRE';
+    if (filtro === 'MANUTENCAO') return r.situacao === 'EM_MANUTENCAO' || r.situacao === 'INDISPONIVEL';
     return true;
   });
 
@@ -151,6 +174,19 @@ function Home() {
           {dayjs(dados.geradoEm).format('HH:mm:ss')}
         </button>
       </div>
+
+      {isAdmin && recursos.atrasados > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          title={`${recursos.atrasados} recurso(s) com devolução atrasada.`}
+          action={
+            <Button size="small" danger onClick={() => navigate('/handovers')}>
+              Ver no balcão
+            </Button>
+          }
+        />
+      )}
 
       <Row gutter={[16, 16]}>
         {stats.map((stat) => (
@@ -195,23 +231,20 @@ function Home() {
             ) : (
               <div className="occupancy-grid">
                 {ocupacaoFiltrada.map((r) => (
-                  <div
-                    key={r.id}
-                    className={`occupancy-item ${r.ocupadoAgora ? 'is-busy' : 'is-free'}`}
-                  >
+                  <div key={r.id} className={`occupancy-item ${SITUACOES[r.situacao].className}`}>
                     <div className="occupancy-top">
                       <img className="occupancy-thumb" src={capaDoRecurso(r)} alt="" loading="lazy" />
                       <span className="occupancy-name">
                         <span className="occupancy-icon">{ICONES_TIPO[r.tipo]}</span> {r.nome}
                       </span>
                     </div>
-                    <span className="occupancy-state">
-                      {r.ocupadoAgora
-                        ? `Em uso até ${hora(r.atual.dataFim)}`
-                        : 'Disponível agora'}
-                    </span>
+                    <span className="occupancy-state">{SITUACOES[r.situacao].texto(r)}</span>
                     <span className="occupancy-detail">
-                      {r.ocupadoAgora ? responsavelPela(r.atual) : descreverProxima(r.proxima)}
+                      {r.atual && r.ocupadoAgora
+                        ? responsavelPela(r.atual)
+                        : r.situacao === 'LIVRE'
+                          ? descreverProxima(r.proxima)
+                          : r.localizacao || ''}
                     </span>
                   </div>
                 ))}
@@ -230,13 +263,15 @@ function Home() {
             </div>
 
             {reservasHoje.length === 0 ? (
-              <Empty description="Nenhuma reserva aprovada para hoje" />
+              <Empty description="Nenhuma reserva para hoje" />
             ) : (
               <ul className="agenda">
                 {reservasHoje.map((reserva) => {
-                  const emAndamento =
-                    dayjs().isAfter(reserva.dataInicio) && dayjs().isBefore(reserva.dataFim);
-                  const encerrada = dayjs().isAfter(reserva.dataFim);
+                  const emAndamento = reserva.status === 'EM_ANDAMENTO';
+                  const encerrada =
+                    reserva.status === 'CONCLUIDA' ||
+                    (reserva.status === 'APROVADA' && dayjs().isAfter(reserva.dataFim));
+                  const selo = seloDaAgenda(reserva);
                   return (
                     <li
                       key={reserva.id}
@@ -258,6 +293,7 @@ function Home() {
                           {ICONES_TIPO[reserva.recurso.tipo]} {reserva.recurso.nome}
                         </span>
                         <span className="agenda-user">{responsavelPela(reserva)}</span>
+                        {selo && <span className="agenda-selo">{selo}</span>}
                       </div>
                     </li>
                   );

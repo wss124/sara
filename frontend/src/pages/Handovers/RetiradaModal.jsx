@@ -1,22 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Checkbox, Input, message } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import { registrarRetirada } from '../../services/solicitacaoService';
 
 // Entrega no balcão: o admin confere item a item o que sai com o professor.
-// Se faltar algo, a entrega só é registrada com uma justificativa.
+// Se faltar algo, a entrega só é registrada com uma justificativa. É montado
+// de novo a cada reserva, então o checklist sempre começa vazio.
 function RetiradaModal({ reserva, onClose, onDone }) {
   const itens = reserva.acessorios ?? [];
   const [recursoConferido, setRecursoConferido] = useState(false);
   const [conferidos, setConferidos] = useState([]);
   const [observacao, setObservacao] = useState('');
   const [salvando, setSalvando] = useState(false);
-
-  useEffect(() => {
-    setRecursoConferido(false);
-    setConferidos([]);
-    setObservacao('');
-  }, [reserva]);
 
   const faltando = itens.filter((i) => !conferidos.includes(i.acessorioId));
   const podeConfirmar = recursoConferido && (faltando.length === 0 || observacao.trim());
