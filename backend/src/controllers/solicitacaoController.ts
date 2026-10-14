@@ -9,6 +9,7 @@ import {
 } from '../lib/estoqueAcessorios';
 import { STATUS_SOLICITACAO, STATUS_OCUPANTES, ANTECEDENCIA_RETIRADA_MIN } from '../lib/status';
 import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/enums';
+import * as notificar from '../emails/notificacoes';
 
 const CONDICOES_DEVOLUCAO = ['OK', 'COM_DEFEITO', 'INCOMPLETO'];
 
@@ -165,6 +166,7 @@ export async function criar(req: Request, res: Response) {
       include: incluirDetalhes,
     });
 
+    notificar.pedidoCriado(solicitacao);
     return res.status(201).json(solicitacao);
   } catch (error) {
     console.error(error);
@@ -230,6 +232,7 @@ export async function reservar(req: Request, res: Response) {
       },
     });
 
+    notificar.reservaLancada(reserva);
     return res.status(201).json({ ...reserva, pendentesConflitantes });
   } catch (error) {
     if (error instanceof ErroNegocio) {
@@ -248,7 +251,7 @@ export async function cancelarReserva(req: ReqComId, res: Response) {
   const { id } = req.params;
 
   try {
-    const reserva = await prisma.solicitacao.findUnique({ where: { id } });
+    const reserva = await prisma.solicitacao.findUnique({ where: { id }, include: incluirDetalhes });
 
     if (!reserva || !reserva.lancadoPorId) {
       return res.status(404).json({ error: 'Reserva não encontrada.' });
@@ -258,6 +261,7 @@ export async function cancelarReserva(req: ReqComId, res: Response) {
     }
 
     await prisma.solicitacao.delete({ where: { id } });
+    notificar.canceladaPeloAdmin(reserva, null);
     return res.status(204).send();
   } catch (error) {
     console.error(error);
@@ -384,6 +388,7 @@ export async function aprovar(req: ReqComId, res: Response) {
       });
     });
 
+    notificar.pedidoAprovado(atualizada);
     return res.json(atualizada);
   } catch (error) {
     if (error instanceof ErroNegocio) {
@@ -399,8 +404,10 @@ export async function aprovar(req: ReqComId, res: Response) {
   }
 }
 
+// Admin: recusa um pedido, com motivo opcional mostrado ao professor
 export async function recusar(req: ReqComId, res: Response) {
   const { id } = req.params;
+  const motivo = String(req.body?.motivo ?? '').trim() || null;
 
   try {
     const solicitacao = await prisma.solicitacao.findUnique({ where: { id } });
@@ -414,10 +421,11 @@ export async function recusar(req: ReqComId, res: Response) {
 
     const atualizada = await prisma.solicitacao.update({
       where: { id },
-      data: { status: 'RECUSADA', aprovadoPorId: req.usuario!.id },
+      data: { status: 'RECUSADA', aprovadoPorId: req.usuario!.id, motivoRecusa: motivo },
       include: incluirDetalhes,
     });
 
+    notificar.pedidoRecusado(atualizada, motivo);
     return res.json(atualizada);
   } catch (error) {
     console.error(error);
@@ -449,6 +457,7 @@ export async function cancelar(req: ReqComId, res: Response) {
         data: { status: 'CANCELADA', canceladoEm: new Date() },
         include: incluirDetalhes,
       });
+      notificar.canceladaPeloProfessor(cancelada);
       return res.json(cancelada);
     }
 
@@ -489,6 +498,7 @@ export async function cancelarPeloAdmin(req: ReqComId, res: Response) {
       include: incluirDetalhes,
     });
 
+    notificar.canceladaPeloAdmin(cancelada, motivo);
     return res.json(cancelada);
   } catch (error) {
     console.error(error);
@@ -655,6 +665,7 @@ export async function registrarDevolucao(req: ReqComId, res: Response) {
 
     const reservasAfetadas =
       condicao === 'COM_DEFEITO' ? await buscarReservasFuturas(reserva.recursoId) : [];
+    notificar.recursoForaDeUso(reservasAfetadas, 'EM_MANUTENCAO');
 
     return res.json({ ...atualizada, reservasAfetadas });
   } catch (error) {

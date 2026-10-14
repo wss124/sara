@@ -32,8 +32,8 @@ export async function aprovarSolicitacao(id) {
   return response.data;
 }
 
-export async function recusarSolicitacao(id) {
-  const response = await api.patch(`/solicitacoes/${id}/recusar`);
+export async function recusarSolicitacao(id, motivo) {
+  const response = await api.patch(`/solicitacoes/${id}/recusar`, { motivo });
   return response.data;
 }
 

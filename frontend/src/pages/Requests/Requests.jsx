@@ -127,6 +127,7 @@ function Requests() {
                   </span>
                 )}
                 {s.observacao && <p>{s.observacao}</p>}
+                {s.motivoRecusa && <span className="request-meta">Motivo da recusa: {s.motivoRecusa}</span>}
                 {s.motivoCancelamento && (
                   <span className="request-meta">Cancelada pelo administrador: {s.motivoCancelamento}</span>
                 )}

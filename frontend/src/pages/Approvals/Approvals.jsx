@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Segmented, Popconfirm, Empty, Spin, message } from 'antd';
+import { Button, Segmented, Popconfirm, Empty, Spin, Input, message } from 'antd';
 import dayjs from 'dayjs';
 import { CheckOutlined, CloseOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
@@ -21,6 +21,7 @@ function Approvals() {
   const [status, setStatus] = useState('PENDENTE');
   const [processando, setProcessando] = useState(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [motivoRecusa, setMotivoRecusa] = useState('');
 
   const carregar = (filtro) =>
     listarSolicitacoes(filtro === 'TODAS' ? undefined : filtro)
@@ -41,7 +42,7 @@ function Approvals() {
         await aprovarSolicitacao(id);
         message.success('Solicitação aprovada.');
       } else {
-        await recusarSolicitacao(id);
+        await recusarSolicitacao(id, motivoRecusa.trim() || undefined);
         message.success('Solicitação recusada.');
       }
       carregar(status);
@@ -141,6 +142,10 @@ function Approvals() {
                   </span>
                 )}
                 {s.observacao && <p>{s.observacao}</p>}
+                {s.motivoRecusa && <span className="request-meta">Motivo da recusa: {s.motivoRecusa}</span>}
+                {s.motivoCancelamento && (
+                  <span className="request-meta">Motivo do cancelamento: {s.motivoCancelamento}</span>
+                )}
                 {s.aprovadoPor && s.status !== 'PENDENTE' && !s.lancadoPor && (
                   <span className="request-meta">
                     {s.status === 'APROVADA' ? 'Aprovada' : 'Recusada'} por {s.aprovadoPor.nome}
@@ -153,9 +158,19 @@ function Approvals() {
                   <div className="request-actions">
                     <Popconfirm
                       title="Recusar solicitação?"
+                      description={
+                        <Input.TextArea
+                          rows={2}
+                          value={motivoRecusa}
+                          onChange={(e) => setMotivoRecusa(e.target.value)}
+                          placeholder="Motivo (opcional, enviado ao professor)"
+                          style={{ width: 280, marginTop: 4 }}
+                        />
+                      }
                       okText="Recusar"
                       cancelText="Voltar"
                       okButtonProps={{ danger: true }}
+                      onOpenChange={(aberto) => aberto && setMotivoRecusa('')}
                       onConfirm={() => decidir(s.id, 'recusar')}
                     >
                       <Button danger icon={<CloseOutlined />} disabled={processando === s.id}>

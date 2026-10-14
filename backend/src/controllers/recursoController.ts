@@ -5,6 +5,7 @@ import { uploadFoto, caminhoPublico, apagarFoto } from '../lib/upload';
 import { STATUS_OCUPANTES } from '../lib/status';
 import { buscarReservasFuturas } from './solicitacaoController';
 import { buscarKit } from './acessorioController';
+import * as notificar from '../emails/notificacoes';
 
 // Kit do recurso para a listagem; quem não é admin não vê acessórios inativos
 function incluirKit(isAdmin: boolean) {
@@ -176,6 +177,9 @@ export async function alterarEstado(req: ReqComId, res: Response) {
       data: { estado: estado as EstadoManual },
     });
     const reservasAfetadas = estado === 'DISPONIVEL' ? [] : await buscarReservasFuturas(id);
+    if (estado !== 'DISPONIVEL' && estado !== recurso.estado) {
+      notificar.recursoForaDeUso(reservasAfetadas, estado);
+    }
 
     return res.json({ ...atualizado, reservasAfetadas });
   } catch (error) {
