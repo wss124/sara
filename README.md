@@ -21,6 +21,7 @@ Trabalho de Conclusão de Curso — Bacharelado em Ciência da Computação, UES
 | --- | --- |
 | Frontend | React, Vite, Ant Design, React Router, Axios, Day.js |
 | Backend | Node.js, Express, TypeScript, JWT, bcrypt |
+| Testes | Vitest, Supertest |
 | Banco de dados | PostgreSQL 16 (Docker), Prisma ORM |
 
 ## Como rodar
@@ -63,6 +64,16 @@ Criados pelo `npm run seed --prefix backend`, todos com a senha `123456`:
 | Professora | professora@prp.uespi.br |
 
 Rodar o seed de novo recria as reservas desses usuários em torno do horário atual (útil antes de uma apresentação).
+
+### Testes automatizados
+
+```bash
+npm test --prefix backend
+```
+
+Os testes (Vitest + Supertest) usam um banco separado, `sara_test`, no mesmo PostgreSQL
+do Docker. Ele é criado e migrado automaticamente a cada execução; o banco de
+desenvolvimento não é alterado.
 
 ### Criar um administrador real
 
