@@ -15,6 +15,7 @@ import {
   Spin,
   Tooltip,
   Upload,
+  Dropdown,
   message,
 } from 'antd';
 import {
@@ -26,6 +27,7 @@ import {
   DeleteOutlined,
   CalendarOutlined,
   CameraOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import {
   listarRecursos,
@@ -35,7 +37,9 @@ import {
   enviarFotoRecurso,
   removerFotoRecurso,
   urlFotoRecurso,
+  alterarEstadoRecurso,
 } from '../../services/recursoService';
+import { ESTADOS_RECURSO, ESTADOS_MANUAIS, recursoBloqueado } from '../../utils/estadoRecurso';
 import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
 import './Resources.css';
 
@@ -55,9 +59,11 @@ function getUser() {
   }
 }
 
+// Arquivado > estado físico (manutenção, em uso...) > agenda do momento
 function getStatus(recurso) {
   if (!recurso.ativo) return { label: 'Inativo', className: 'status-inativo' };
-  if (recurso.ocupadoAgora) return { label: 'Em uso agora', className: 'status-ocupado' };
+  if (recurso.estado !== 'DISPONIVEL') return ESTADOS_RECURSO[recurso.estado];
+  if (recurso.ocupadoAgora) return { label: 'Reservado agora', className: 'status-ocupado' };
   return { label: 'Disponível agora', className: 'status-livre' };
 }
 
@@ -115,10 +121,15 @@ function Resources() {
   }, [recursos, busca, tipo]);
 
   const ativos = recursos.filter((r) => r.ativo);
+  const emUso = (r) => r.estado === 'EM_USO' || (r.estado === 'DISPONIVEL' && r.ocupadoAgora);
   const resumo = [
     { label: 'Total de recursos', value: ativos.length },
-    { label: 'Disponíveis agora', value: ativos.filter((r) => !r.ocupadoAgora).length },
-    { label: 'Em uso agora', value: ativos.filter((r) => r.ocupadoAgora).length },
+    {
+      label: 'Disponíveis agora',
+      value: ativos.filter((r) => r.estado === 'DISPONIVEL' && !r.ocupadoAgora).length,
+    },
+    { label: 'Em uso ou reservados agora', value: ativos.filter(emUso).length },
+    { label: 'Em manutenção', value: ativos.filter((r) => r.estado === 'EM_MANUTENCAO').length },
   ];
 
   const abrirModal = (recurso = null) => {
@@ -187,6 +198,16 @@ function Resources() {
     }
   };
 
+  const mudarEstado = async (recurso, estado) => {
+    try {
+      await alterarEstadoRecurso(recurso.id, estado);
+      message.success(`${recurso.nome}: ${ESTADOS_RECURSO[estado].label.toLowerCase()}.`);
+      carregar();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao alterar o estado.');
+    }
+  };
+
   const excluir = async (recurso) => {
     try {
       await removerRecurso(recurso.id);
@@ -219,7 +240,7 @@ function Resources() {
 
       <Row gutter={[16, 16]}>
         {resumo.map((item) => (
-          <Col xs={24} sm={8} key={item.label}>
+          <Col xs={12} lg={6} key={item.label}>
             <div className="resources-summary">
               <span className="resources-summary-value">{item.value}</span>
               <span className="resources-summary-label">{item.label}</span>
@@ -283,17 +304,22 @@ function Resources() {
                     <span className="resource-type">{TIPOS[recurso.tipo].label}</span>
 
                     {recurso.ativo && !isAdmin && (
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<CalendarOutlined />}
-                        className="resource-request"
-                        onClick={() =>
-                          navigate('/requests', { state: { recursoId: recurso.id } })
-                        }
+                      <Tooltip
+                        title={recursoBloqueado(recurso) ? 'Indisponível para reserva no momento' : ''}
                       >
-                        Solicitar
-                      </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<CalendarOutlined />}
+                          className="resource-request"
+                          disabled={recursoBloqueado(recurso)}
+                          onClick={() =>
+                            navigate('/requests', { state: { recursoId: recurso.id } })
+                          }
+                        >
+                          Solicitar
+                        </Button>
+                      </Tooltip>
                     )}
 
                     {isAdmin && (
@@ -305,6 +331,28 @@ function Resources() {
                             onChange={() => alternarAtivo(recurso)}
                           />
                         </Tooltip>
+                        <Dropdown
+                          trigger={['click']}
+                          menu={{
+                            selectedKeys: [recurso.estado],
+                            items: ESTADOS_MANUAIS.map((estado) => ({
+                              key: estado,
+                              label: ESTADOS_RECURSO[estado].label,
+                              disabled: recurso.estado === 'EM_USO',
+                            })),
+                            onClick: ({ key }) => key !== recurso.estado && mudarEstado(recurso, key),
+                          }}
+                        >
+                          <Tooltip
+                            title={
+                              recurso.estado === 'EM_USO'
+                                ? 'Em uso: registre a devolução para mudar o estado'
+                                : 'Alterar estado'
+                            }
+                          >
+                            <Button type="text" icon={<ToolOutlined />} />
+                          </Tooltip>
+                        </Dropdown>
                         <Tooltip title="Editar">
                           <Button
                             type="text"

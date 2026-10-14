@@ -18,6 +18,15 @@ enum TipoRecurso {
   EQUIPAMENTO
 }
 
+// Situação física do recurso. "ativo" continua indicando se o cadastro está
+// arquivado; o estado diz se ele pode ser usado agora.
+enum EstadoRecurso {
+  DISPONIVEL
+  EM_USO
+  EM_MANUTENCAO
+  INDISPONIVEL
+}
+
 enum StatusSolicitacao {
   PENDENTE
   APROVADA
@@ -44,6 +53,7 @@ model Recurso {
   descricao  String?
   foto       String?
   ativo      Boolean     @default(true)
+  estado     EstadoRecurso @default(DISPONIVEL)
   criadoEm   DateTime    @default(now())
 
   solicitacoes Solicitacao[]

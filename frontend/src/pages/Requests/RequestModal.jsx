@@ -9,6 +9,7 @@ import {
   lancarReserva,
 } from '../../services/solicitacaoService';
 import { listarUsuarios } from '../../services/usuarioService';
+import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
 
 // Com `admin`, o modal vira "Nova reserva": o admin escolhe para quem é a
 // reserva (ou uso institucional) e ela já é registrada como aprovada.
@@ -154,7 +155,11 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
             showSearch
             optionFilterProp="label"
             placeholder="Selecione uma sala ou equipamento"
-            options={recursos.map((r) => ({ value: r.id, label: r.nome }))}
+            options={recursos.map((r) => ({
+              value: r.id,
+              label: recursoBloqueado(r) ? `${r.nome} (${ESTADOS_RECURSO[r.estado].label.toLowerCase()})` : r.nome,
+              disabled: recursoBloqueado(r),
+            }))}
           />
         </Form.Item>
 

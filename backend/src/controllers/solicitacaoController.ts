@@ -32,6 +32,12 @@ function buscarConflito(recursoId: string, inicio: Date, fim: Date, ignorarId?: 
   });
 }
 
+// Estados em que o recurso não aceita novos pedidos nem aprovações
+const MOTIVO_BLOQUEIO: Partial<Record<string, string>> = {
+  EM_MANUTENCAO: 'O recurso está em manutenção e não pode ser reservado no momento.',
+  INDISPONIVEL: 'O recurso está indisponível e não pode ser reservado no momento.',
+};
+
 // Validações comuns à solicitação do usuário e à reserva lançada pelo admin.
 // Devolve o período já convertido ou a mensagem de erro com o status HTTP.
 type ResultadoValidacao =
@@ -59,6 +65,10 @@ async function validarPedido(
   const recurso = await prisma.recurso.findUnique({ where: { id: String(recursoId) } });
   if (!recurso || !recurso.ativo) {
     return { ok: false, status: 404, error: 'Recurso não encontrado ou inativo.' };
+  }
+  const bloqueio = MOTIVO_BLOQUEIO[recurso.estado];
+  if (bloqueio) {
+    return { ok: false, status: 409, error: bloqueio };
   }
   if (await buscarConflito(recurso.id, inicio, fim)) {
     return { ok: false, status: 409, error: 'O recurso já está reservado nesse horário.' };
@@ -258,13 +268,20 @@ export async function aprovar(req: ReqComId, res: Response) {
   const { id } = req.params;
 
   try {
-    const solicitacao = await prisma.solicitacao.findUnique({ where: { id } });
+    const solicitacao = await prisma.solicitacao.findUnique({
+      where: { id },
+      include: { recurso: { select: { estado: true } } },
+    });
 
     if (!solicitacao) {
       return res.status(404).json({ error: 'Solicitação não encontrada.' });
     }
     if (solicitacao.status !== 'PENDENTE') {
       return res.status(409).json({ error: 'Apenas solicitações pendentes podem ser aprovadas.' });
+    }
+    const bloqueio = MOTIVO_BLOQUEIO[solicitacao.recurso.estado];
+    if (bloqueio) {
+      return res.status(409).json({ error: bloqueio });
     }
 
     // Outra solicitação pode ter sido aprovada para o mesmo horário depois desta

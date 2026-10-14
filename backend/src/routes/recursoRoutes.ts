@@ -8,6 +8,7 @@ import {
   remover,
   atualizarFoto,
   removerFoto,
+  alterarEstado,
 } from '../controllers/recursoController';
 
 const router = Router();
@@ -22,5 +23,6 @@ router.put('/:id', somenteAdmin, atualizar);
 router.delete('/:id', somenteAdmin, remover);
 router.put('/:id/foto', somenteAdmin, atualizarFoto);
 router.delete('/:id/foto', somenteAdmin, removerFoto);
+router.patch('/:id/estado', somenteAdmin, alterarEstado);
 
 export { router as recursoRoutes };

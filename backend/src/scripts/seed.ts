@@ -17,11 +17,12 @@ const USUARIOS = [
 ] as const;
 
 const RECURSOS = [
-  { nome: 'Laboratório de Informática 1', tipo: 'SALA', descricao: '30 computadores, quadro branco' },
-  { nome: 'Sala 204', tipo: 'SALA', descricao: 'Capacidade para 40 alunos' },
-  { nome: 'Auditório', tipo: 'SALA', descricao: 'Capacidade para 120 pessoas, som e telão' },
-  { nome: 'Projetor Epson', tipo: 'EQUIPAMENTO', descricao: 'Datashow com cabo HDMI' },
-  { nome: 'Notebook Dell', tipo: 'EQUIPAMENTO', descricao: 'Para apresentações' },
+  { nome: 'Laboratório de Informática 1', tipo: 'SALA', descricao: '30 computadores, quadro branco', estado: 'DISPONIVEL' },
+  { nome: 'Sala 204', tipo: 'SALA', descricao: 'Capacidade para 40 alunos', estado: 'DISPONIVEL' },
+  { nome: 'Auditório', tipo: 'SALA', descricao: 'Capacidade para 120 pessoas, som e telão', estado: 'DISPONIVEL' },
+  { nome: 'Projetor Epson', tipo: 'EQUIPAMENTO', descricao: 'Datashow com cabo HDMI', estado: 'DISPONIVEL' },
+  // Em manutenção, para demonstrar o bloqueio de novos pedidos
+  { nome: 'Notebook Dell', tipo: 'EQUIPAMENTO', descricao: 'Para apresentações', estado: 'EM_MANUTENCAO' },
 ] as const;
 
 // Horário cheio relativo a agora (ex.: horas(-1) = uma hora atrás, arredondado)
@@ -56,7 +57,9 @@ async function main() {
   const recursos: Record<string, string> = {};
   for (const r of RECURSOS) {
     const existente = await prisma.recurso.findFirst({ where: { nome: r.nome } });
-    const recurso = existente ?? (await prisma.recurso.create({ data: r }));
+    const recurso = existente
+      ? await prisma.recurso.update({ where: { id: existente.id }, data: { estado: r.estado } })
+      : await prisma.recurso.create({ data: r });
     recursos[r.nome] = recurso.id;
   }
 

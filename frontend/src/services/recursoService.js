@@ -19,6 +19,11 @@ export async function removerRecurso(id) {
   await api.delete(`/recursos/${id}`);
 }
 
+export async function alterarEstadoRecurso(id, estado) {
+  const response = await api.patch(`/recursos/${id}/estado`, { estado });
+  return response.data;
+}
+
 export async function enviarFotoRecurso(id, arquivo) {
   const dados = new FormData();
   dados.append('foto', arquivo);

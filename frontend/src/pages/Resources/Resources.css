@@ -187,6 +187,10 @@
   color: #888;
   background: #f0f0f0;
 }
+.status-manutencao {
+  color: #b5462b;
+  background: #fbe9e4;
+}
 
 .resource-request {
   border-radius: 999px !important;

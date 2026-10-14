@@ -7,6 +7,11 @@ type ReqComId = Request<{ id: string }>;
 
 const TIPOS_VALIDOS = ['SALA', 'EQUIPAMENTO'];
 
+// Estados que o admin pode definir manualmente. EM_USO só é atingido ao
+// registrar a retirada do recurso, e só sai dele na devolução.
+const ESTADOS_MANUAIS = ['DISPONIVEL', 'EM_MANUTENCAO', 'INDISPONIVEL'] as const;
+type EstadoManual = (typeof ESTADOS_MANUAIS)[number];
+
 // Lista os recursos indicando se cada um está ocupado neste momento
 // (existe uma solicitação aprovada cobrindo o horário atual).
 // Usuários comuns veem apenas recursos ativos; o admin vê todos.
@@ -119,6 +124,41 @@ export async function atualizar(req: ReqComId, res: Response) {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao atualizar recurso.' });
+  }
+}
+
+// Admin: coloca o recurso em manutenção, indisponível ou de volta a disponível
+export async function alterarEstado(req: ReqComId, res: Response) {
+  const { id } = req.params;
+  const { estado } = req.body;
+
+  if (!ESTADOS_MANUAIS.includes(estado)) {
+    return res.status(400).json({
+      error: 'Informe um estado válido: DISPONIVEL, EM_MANUTENCAO ou INDISPONIVEL.',
+    });
+  }
+
+  try {
+    const recurso = await prisma.recurso.findUnique({ where: { id } });
+
+    if (!recurso) {
+      return res.status(404).json({ error: 'Recurso não encontrado.' });
+    }
+    if (recurso.estado === 'EM_USO') {
+      return res.status(409).json({
+        error: 'O recurso está em uso. Registre a devolução antes de mudar o estado.',
+      });
+    }
+
+    const atualizado = await prisma.recurso.update({
+      where: { id },
+      data: { estado: estado as EstadoManual },
+    });
+
+    return res.json(atualizado);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao alterar o estado do recurso.' });
   }
 }
 
