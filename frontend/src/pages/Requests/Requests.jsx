@@ -116,6 +116,12 @@ function Requests() {
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
                 <span className="request-period">{periodoDaSolicitacao(s)}</span>
+                {s.fila && (
+                  <span className="request-fila">
+                    {s.fila.posicao}º na fila: {s.fila.total} pedidos disputam este horário. O
+                    administrador decide qual aprovar.
+                  </span>
+                )}
                 {s.recurso.localizacao && (
                   <span className="request-location">
                     <EnvironmentOutlined /> Retirar em: {s.recurso.localizacao}

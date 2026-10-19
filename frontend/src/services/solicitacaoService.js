@@ -21,6 +21,13 @@ export async function consultarOcupacao(recursoId, inicio, fim) {
   return response.data;
 }
 
+export async function consultarPendentesNoPeriodo(recursoId, inicio, fim) {
+  const response = await api.get('/solicitacoes/pendentes-no-periodo', {
+    params: { recursoId, inicio, fim },
+  });
+  return response.data.pendentes;
+}
+
 // Administrador
 export async function listarSolicitacoes(status) {
   const response = await api.get('/solicitacoes', { params: status ? { status } : {} });

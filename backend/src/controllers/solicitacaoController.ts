@@ -16,6 +16,7 @@ import {
 import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/enums';
 import * as notificar from '../emails/notificacoes';
 import { diaValido, periodoDoTurno } from '../lib/turnos';
+import { montarFila } from '../lib/fila';
 
 const CONDICOES_DEVOLUCAO = ['OK', 'COM_DEFEITO', 'INCOMPLETO'];
 
@@ -374,15 +375,41 @@ export async function cancelarReserva(req: ReqComId, res: Response) {
   }
 }
 
+// Fila de todos os pedidos pendentes, para indicar quem chegou primeiro entre
+// os que disputam o mesmo recurso e horário
+async function filaDosPendentes() {
+  const pendentes = await prisma.solicitacao.findMany({
+    where: { status: 'PENDENTE' },
+    select: {
+      id: true,
+      recursoId: true,
+      dataInicio: true,
+      dataFim: true,
+      criadoEm: true,
+      usuario: { select: { nome: true } },
+    },
+  });
+  return montarFila(pendentes);
+}
+
 export async function listarMinhas(req: Request, res: Response) {
   try {
-    const solicitacoes = await prisma.solicitacao.findMany({
-      where: { usuarioId: req.usuario!.id },
-      include: incluirDetalhes,
-      orderBy: { dataInicio: 'desc' },
-    });
+    const [solicitacoes, fila] = await Promise.all([
+      prisma.solicitacao.findMany({
+        where: { usuarioId: req.usuario!.id },
+        include: incluirDetalhes,
+        orderBy: { dataInicio: 'desc' },
+      }),
+      filaDosPendentes(),
+    ]);
 
-    return res.json(solicitacoes);
+    // O professor vê só a própria posição, sem saber quem são os outros
+    return res.json(
+      solicitacoes.map((s) => {
+        const posicao = fila.get(s.id);
+        return { ...s, fila: posicao ? { posicao: posicao.posicao, total: posicao.total } : null };
+      })
+    );
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao listar solicitações.' });
@@ -398,13 +425,34 @@ export async function listarTodas(req: Request, res: Response) {
   }
 
   try {
-    const solicitacoes = await prisma.solicitacao.findMany({
-      where: status ? { status: status as StatusSolicitacao } : {},
-      include: incluirDetalhes,
-      orderBy: { dataInicio: 'asc' },
-    });
+    const [solicitacoes, fila] = await Promise.all([
+      prisma.solicitacao.findMany({
+        where: status ? { status: status as StatusSolicitacao } : {},
+        include: incluirDetalhes,
+        orderBy: { dataInicio: 'asc' },
+      }),
+      filaDosPendentes(),
+    ]);
 
-    return res.json(solicitacoes);
+    return res.json(
+      solicitacoes.map((s) => {
+        const posicao = fila.get(s.id);
+        return {
+          ...s,
+          fila: posicao
+            ? {
+                posicao: posicao.posicao,
+                total: posicao.total,
+                concorrentes: posicao.concorrentes.map((c) => ({
+                  id: c.id,
+                  criadoEm: c.criadoEm,
+                  usuario: c.usuario,
+                })),
+              }
+            : null,
+        };
+      })
+    );
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao listar solicitações.' });
@@ -438,6 +486,33 @@ export async function ocupacao(req: Request, res: Response) {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao consultar ocupação.' });
+  }
+}
+
+// Quantos pedidos pendentes já disputam o período, para o professor saber
+// antes de enviar que entrará numa fila
+export async function pendentesNoPeriodo(req: Request, res: Response) {
+  const { recursoId } = req.query;
+  const inicio = parseData(req.query.inicio);
+  const fim = parseData(req.query.fim);
+
+  if (!recursoId || !inicio || !fim) {
+    return res.status(400).json({ error: 'Informe recursoId, inicio e fim.' });
+  }
+
+  try {
+    const pendentes = await prisma.solicitacao.count({
+      where: {
+        recursoId: String(recursoId),
+        status: 'PENDENTE',
+        dataInicio: { lt: fim },
+        dataFim: { gt: inicio },
+      },
+    });
+    return res.json({ pendentes });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: 'Erro ao consultar pedidos pendentes.' });
   }
 }
 
@@ -493,8 +568,21 @@ export async function aprovar(req: ReqComId, res: Response) {
       });
     });
 
+    // Pedidos que disputavam o horário agora não têm mais vaga. A decisão de
+    // recusá-los fica com o admin; a resposta os lista para ele decidir.
+    const semVaga = await prisma.solicitacao.findMany({
+      where: {
+        recursoId: atualizada.recursoId,
+        status: 'PENDENTE',
+        dataInicio: { lt: atualizada.dataFim },
+        dataFim: { gt: atualizada.dataInicio },
+      },
+      include: incluirDetalhes,
+      orderBy: { criadoEm: 'asc' },
+    });
+
     notificar.pedidoAprovado(atualizada);
-    return res.json(atualizada);
+    return res.json({ ...atualizada, semVaga });
   } catch (error) {
     if (error instanceof ErroNegocio) {
       return res.status(error.status).json({ error: error.message });

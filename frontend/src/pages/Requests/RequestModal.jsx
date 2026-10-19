@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Form, Select, DatePicker, Input, Segmented, message } from 'antd';
+import { Modal, Form, Select, DatePicker, Input, Segmented, Alert, message } from 'antd';
 import dayjs from 'dayjs';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import TimeSlotGrid from './TimeSlotGrid';
@@ -8,6 +8,7 @@ import AcessoriosDoPedido from './AcessoriosDoPedido';
 import { listarRecursos } from '../../services/recursoService';
 import {
   consultarOcupacao,
+  consultarPendentesNoPeriodo,
   criarSolicitacao,
   lancarReserva,
 } from '../../services/solicitacaoService';
@@ -27,6 +28,8 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   // para não exibir dados de uma consulta anterior enquanto a nova carrega
   const [ocupacao, setOcupacao] = useState({ chave: null, lista: null });
   const [salvando, setSalvando] = useState(false);
+  // Pedidos pendentes de outras pessoas no período escolhido (fila)
+  const [fila, setFila] = useState({ chave: null, pendentes: 0 });
 
   const recursoId = Form.useWatch('recursoId', form);
   const data = Form.useWatch('data', form);
@@ -51,6 +54,9 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
     return [inicio, fim];
   }, [porTurno, data, turnoIds, turnos]);
   const periodo = porTurno ? periodoTurnos : horario;
+  const chaveFila =
+    !admin && recursoId && periodo ? `${recursoId}-${periodo[0].valueOf()}-${periodo[1].valueOf()}` : null;
+  const pendentesNaFila = chaveFila && fila.chave === chaveFila ? fila.pendentes : 0;
 
   useEffect(() => {
     if (!open) return;
@@ -90,6 +96,18 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
       cancelado = true;
     };
   }, [chave, recursoId, data, form]);
+
+  // O pedido não é bloqueado por outro pendente: entra na fila e o admin decide
+  useEffect(() => {
+    if (!chaveFila) return;
+    let cancelado = false;
+    consultarPendentesNoPeriodo(recursoId, periodo[0].toISOString(), periodo[1].toISOString())
+      .then((pendentes) => !cancelado && setFila({ chave: chaveFila, pendentes }))
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [chaveFila, recursoId, periodo]);
 
   const salvar = async () => {
     const valores = await form.validateFields();
@@ -259,6 +277,16 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
           <Form.Item name="acessorios" label="Itens que acompanham">
             <AcessoriosDoPedido recursoId={recursoId} periodo={periodo} />
           </Form.Item>
+        )}
+
+        {pendentesNaFila > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            className="request-fila-aviso"
+            title={`Já há ${pendentesNaFila} pedido(s) aguardando aprovação neste horário.`}
+            description={`Você pode enviar mesmo assim: seu pedido entra na fila como o ${pendentesNaFila + 1}º, e o administrador decide qual aprovar.`}
+          />
         )}
 
         <Form.Item

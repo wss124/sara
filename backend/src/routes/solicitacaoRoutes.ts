@@ -5,6 +5,7 @@ import {
   listarMinhas,
   listarTodas,
   ocupacao,
+  pendentesNoPeriodo,
   aprovar,
   recusar,
   cancelar,
@@ -24,6 +25,7 @@ router.use(autenticar);
 router.post('/', criar);
 router.get('/minhas', listarMinhas);
 router.get('/ocupacao', ocupacao);
+router.get('/pendentes-no-periodo', pendentesNoPeriodo);
 router.delete('/:id', cancelar);
 
 // Administrador
