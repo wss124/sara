@@ -11,6 +11,7 @@ import {
   alterarEstado,
 } from '../controllers/recursoController';
 import { definirKit } from '../controllers/acessorioController';
+import { disponibilidade } from '../controllers/disponibilidadeController';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use(autenticar);
 
 router.get('/', listar);
 router.get('/:id', buscarPorId);
+router.get('/:id/disponibilidade', disponibilidade);
 router.post('/', somenteAdmin, criar);
 router.put('/:id', somenteAdmin, atualizar);
 router.delete('/:id', somenteAdmin, remover);

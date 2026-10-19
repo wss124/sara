@@ -86,3 +86,9 @@ export function formatarPeriodo(inicio: Date, fim: Date) {
     ? `${formatarData(inicio)}, ${formatarHora(inicio)} – ${formatarHora(fim)}`
     : `${formatarData(inicio)} ${formatarHora(inicio)} – ${formatarData(fim)} ${formatarHora(fim)}`;
 }
+
+// "2026-10-14" + 3 dias = "2026-10-17" (datas de calendário, sem fuso)
+export function somarDias(dia: string, dias: number) {
+  const [ano, mes, d] = dia.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(ano, mes - 1, d + dias)).toISOString().slice(0, 10);
+}

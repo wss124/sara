@@ -32,3 +32,33 @@ export function turnosSeSobrepoem(a: FaixaHoraria, b: FaixaHoraria) {
 export function periodoDoTurno(dia: string, turno: FaixaHoraria) {
   return { inicio: instanteNoFuso(dia, turno.horaInicio), fim: instanteNoFuso(dia, turno.horaFim) };
 }
+
+export type SituacaoTurno = 'LIVRE' | 'PARCIAL' | 'OCUPADO' | 'ENCERRADO';
+
+interface Intervalo {
+  dataInicio: Date;
+  dataFim: Date;
+}
+
+// Situação de um período (turno de um dia) diante das reservas que ocupam o
+// recurso: já começou, livre, totalmente tomado (mesmo que por várias
+// reservas emendadas) ou parcialmente ocupado
+export function situacaoDoPeriodo(
+  inicio: Date,
+  fim: Date,
+  reservas: Intervalo[],
+  agora = new Date()
+): SituacaoTurno {
+  if (inicio < agora) return 'ENCERRADO';
+  const conflitos = reservas
+    .filter((r) => r.dataInicio < fim && r.dataFim > inicio)
+    .sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime());
+  if (conflitos.length === 0) return 'LIVRE';
+
+  let coberto = inicio;
+  for (const r of conflitos) {
+    if (r.dataInicio > coberto) break;
+    if (r.dataFim > coberto) coberto = r.dataFim;
+  }
+  return coberto >= fim ? 'OCUPADO' : 'PARCIAL';
+}
