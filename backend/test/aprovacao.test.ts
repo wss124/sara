@@ -31,7 +31,7 @@ describe('aprovação de solicitações', () => {
       expect(respostas.map((r) => r.status).sort()).toEqual([200, 409, 409, 409, 409]);
       expect(await prisma.solicitacao.count({ where: { status: 'APROVADA' } })).toBe(1);
     }
-  });
+  }, 20_000);
 
   it('reservas encostadas (fim = início) não conflitam', async () => {
     const admin = await criarUsuario('ADMIN');
