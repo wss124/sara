@@ -7,6 +7,8 @@
 import '../env';
 import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
+import { dataNoFuso, instanteNoFuso, somarDias } from '../lib/fuso';
+import { diaDaSemana, gerarDatas } from '../lib/recorrencia';
 
 const SENHA_DEMO = '123456';
 
@@ -118,9 +120,9 @@ async function main() {
     });
   }
 
-  await prisma.solicitacao.deleteMany({
-    where: { usuarioId: { in: [admin!.id, professor!.id, professora!.id] } },
-  });
+  const usuariosDemo = [admin!.id, professor!.id, professora!.id];
+  await prisma.solicitacao.deleteMany({ where: { usuarioId: { in: usuariosDemo } } });
+  await prisma.recorrencia.deleteMany({ where: { usuarioId: { in: usuariosDemo } } });
 
   await prisma.solicitacao.createMany({
     data: [
@@ -160,6 +162,18 @@ async function main() {
         dataFim: amanha(10),
         status: 'PENDENTE',
         observacao: 'Aula de reposição',
+        criadoEm: horas(-3),
+      },
+      {
+        // Disputa o mesmo horário do pedido acima, feito depois: os dois
+        // aparecem na fila em Aprovações
+        usuarioId: professora!.id,
+        recursoId: recursos['Laboratório de Informática 1']!,
+        dataInicio: amanha(9),
+        dataFim: amanha(11),
+        status: 'PENDENTE',
+        observacao: 'Minicurso de Python',
+        criadoEm: horas(-1),
       },
       {
         usuarioId: professora!.id,
@@ -176,6 +190,39 @@ async function main() {
     where: { id: recursos['Laboratório de Informática 1']! },
     data: { estado: 'EM_USO' },
   });
+
+  // Série semanal pendente: quatro semanas à tarde no Auditório, a partir de
+  // amanhã, para demonstrar a aprovação em lote
+  const tarde = await prisma.turno.findFirst({ where: { nome: 'Tarde', ativo: true } });
+  if (tarde) {
+    const primeiroDia = dataNoFuso(amanha(12));
+    const ultimoDia = somarDias(primeiroDia, 21);
+    const diasSemana = [diaDaSemana(primeiroDia)];
+    const observacao = 'Grupo de estudos de Algoritmos';
+    await prisma.recorrencia.create({
+      data: {
+        usuarioId: professor!.id,
+        recursoId: recursos['Auditório']!,
+        turnoId: tarde.id,
+        horaInicio: tarde.horaInicio,
+        horaFim: tarde.horaFim,
+        diasSemana,
+        dataInicio: primeiroDia,
+        dataFim: ultimoDia,
+        observacao,
+        solicitacoes: {
+          create: gerarDatas(primeiroDia, ultimoDia, diasSemana).map((dia) => ({
+            usuarioId: professor!.id,
+            recursoId: recursos['Auditório']!,
+            turnoId: tarde.id,
+            dataInicio: instanteNoFuso(dia, tarde.horaInicio),
+            dataFim: instanteNoFuso(dia, tarde.horaFim),
+            observacao,
+          })),
+        },
+      },
+    });
+  }
 
   console.log('Dados de demonstração prontos. Senha de todos os usuários demo:', SENHA_DEMO);
   for (const u of USUARIOS) console.log(`  ${u.perfil.padEnd(9)} ${u.email}`);
