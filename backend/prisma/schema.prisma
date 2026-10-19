@@ -84,6 +84,8 @@ model Turno {
   horaFim    String
   ordem      Int     @default(0)
   ativo      Boolean @default(true)
+
+  solicitacoes Solicitacao[]
 }
 
 // Execuções de rotinas que devem acontecer uma vez só (ex.: resumo diário
@@ -146,6 +148,11 @@ model Solicitacao {
   status        StatusSolicitacao @default(PENDENTE)
   observacao    String?
   motivoRecusa  String?
+
+  // Turno escolhido no pedido (só para exibição: o período real fica em
+  // dataInicio/dataFim e não muda se o turno for editado depois)
+  turno         Turno?            @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  turnoId       String?
 
   // Reserva registrada diretamente pelo admin (pedido por telefone, balcão
   // ou uso da própria instituição). No uso institucional, usuario é o admin

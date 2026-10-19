@@ -15,6 +15,7 @@ import {
 } from '../lib/status';
 import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/enums';
 import * as notificar from '../emails/notificacoes';
+import { diaValido, periodoDoTurno } from '../lib/turnos';
 
 const CONDICOES_DEVOLUCAO = ['OK', 'COM_DEFEITO', 'INCOMPLETO'];
 
@@ -38,6 +39,7 @@ const incluirDetalhes = {
   acessorios: {
     include: { acessorio: { select: { id: true, nome: true, localizacao: true } } },
   },
+  turno: { select: { id: true, nome: true } },
 } as const;
 
 function mensagemEmFalta(nomes: string[]) {
@@ -101,13 +103,10 @@ type ResultadoValidacao =
 
 async function validarPedido(
   recursoId: unknown,
-  dataInicio: unknown,
-  dataFim: unknown,
+  inicio: Date | null,
+  fim: Date | null,
   acessorios?: unknown
 ): Promise<ResultadoValidacao> {
-  const inicio = parseData(dataInicio);
-  const fim = parseData(dataFim);
-
   if (!recursoId || !inicio || !fim) {
     return { ok: false, status: 400, error: 'Informe o recurso, a data de início e a data de fim.' };
   }
@@ -142,8 +141,85 @@ async function validarPedido(
   return { ok: true, inicio, fim, itens: montagem.itens };
 }
 
+interface Periodo {
+  inicio: Date | null;
+  fim: Date | null;
+  turno: { id: string; nome: string } | null;
+}
+
+type ResultadoPeriodos =
+  | { ok: true; periodos: Periodo[]; porTurno: boolean }
+  | { ok: false; status: number; error: string };
+
+// O pedido chega por horário ({ dataInicio, dataFim }) ou por turno
+// ({ data: "2026-10-14", turnoIds: [...] }). Cada turno vira um período
+// próprio, convertido com os horários atuais do turno no fuso do campus.
+async function resolverPeriodos(corpo: Record<string, unknown>): Promise<ResultadoPeriodos> {
+  if (corpo.turnoIds === undefined) {
+    return {
+      ok: true,
+      porTurno: false,
+      periodos: [{ inicio: parseData(corpo.dataInicio), fim: parseData(corpo.dataFim), turno: null }],
+    };
+  }
+
+  const ids = listaDeIds(corpo.turnoIds);
+  if (!ids || ids.length === 0 || new Set(ids).size !== ids.length) {
+    return { ok: false, status: 400, error: 'Escolha um ou mais turnos, sem repetir.' };
+  }
+  if (!diaValido(corpo.data)) {
+    return { ok: false, status: 400, error: 'Informe a data no formato AAAA-MM-DD.' };
+  }
+  const dia = corpo.data;
+
+  const turnos = await prisma.turno.findMany({
+    where: { id: { in: ids }, ativo: true },
+    orderBy: { horaInicio: 'asc' },
+  });
+  if (turnos.length !== ids.length) {
+    return { ok: false, status: 400, error: 'Turno inválido ou desativado.' };
+  }
+
+  return {
+    ok: true,
+    porTurno: true,
+    periodos: turnos.map((t) => ({ ...periodoDoTurno(dia, t), turno: { id: t.id, nome: t.nome } })),
+  };
+}
+
+interface PedidoValidado {
+  inicio: Date;
+  fim: Date;
+  itens: ItemPedido[];
+  turnoId: string | null;
+}
+
+// Valida todos os períodos do pedido. Basta um falhar para nada ser criado;
+// no pedido por turno, a mensagem diz qual turno teve problema.
+async function validarPeriodos(
+  recursoId: unknown,
+  periodos: Periodo[],
+  acessorios: unknown
+): Promise<{ ok: true; pedidos: PedidoValidado[] } | { ok: false; status: number; error: string }> {
+  const pedidos: PedidoValidado[] = [];
+  for (const periodo of periodos) {
+    const validacao = await validarPedido(recursoId, periodo.inicio, periodo.fim, acessorios);
+    if (!validacao.ok) {
+      const prefixo = periodo.turno ? `${periodo.turno.nome}: ` : '';
+      return { ...validacao, error: prefixo + validacao.error };
+    }
+    pedidos.push({
+      inicio: validacao.inicio,
+      fim: validacao.fim,
+      itens: validacao.itens,
+      turnoId: periodo.turno?.id ?? null,
+    });
+  }
+  return { ok: true, pedidos };
+}
+
 export async function criar(req: Request, res: Response) {
-  const { recursoId, dataInicio, dataFim, observacao, acessorios } = req.body;
+  const { recursoId, observacao, acessorios } = req.body;
 
   // O admin não pede para si mesmo: ele lança reservas já aprovadas
   if (req.usuario?.perfil === 'ADMIN') {
@@ -153,26 +229,36 @@ export async function criar(req: Request, res: Response) {
   }
 
   try {
-    const validacao = await validarPedido(recursoId, dataInicio, dataFim, acessorios);
+    const resolvidos = await resolverPeriodos(req.body);
+    if (!resolvidos.ok) {
+      return res.status(resolvidos.status).json({ error: resolvidos.error });
+    }
+    const validacao = await validarPeriodos(recursoId, resolvidos.periodos, acessorios);
     if (!validacao.ok) {
       return res.status(validacao.status).json({ error: validacao.error });
     }
-    const { inicio, fim, itens } = validacao;
 
-    const solicitacao = await prisma.solicitacao.create({
-      data: {
-        recursoId,
-        usuarioId: req.usuario!.id,
-        dataInicio: inicio,
-        dataFim: fim,
-        observacao: observacao?.trim() || null,
-        acessorios: { create: itens },
-      },
-      include: incluirDetalhes,
-    });
+    // Manhã + tarde viram dois pedidos, aprovados ou cancelados separadamente
+    const solicitacoes = await prisma.$transaction(
+      validacao.pedidos.map((p) =>
+        prisma.solicitacao.create({
+          data: {
+            recursoId,
+            usuarioId: req.usuario!.id,
+            dataInicio: p.inicio,
+            dataFim: p.fim,
+            turnoId: p.turnoId,
+            observacao: observacao?.trim() || null,
+            acessorios: { create: p.itens },
+          },
+          include: incluirDetalhes,
+        })
+      )
+    );
 
-    notificar.pedidoCriado(solicitacao);
-    return res.status(201).json(solicitacao);
+    solicitacoes.forEach((s) => notificar.pedidoCriado(s));
+    // Por turno a resposta é sempre uma lista; por horário, o pedido único
+    return res.status(201).json(resolvidos.porTurno ? solicitacoes : solicitacoes[0]);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Erro ao criar solicitação.' });
@@ -182,8 +268,7 @@ export async function criar(req: Request, res: Response) {
 // Admin: registra uma reserva já aprovada, em nome de um usuário cadastrado
 // ou como uso institucional (prova, reunião, evento).
 export async function reservar(req: Request, res: Response) {
-  const { recursoId, dataInicio, dataFim, observacao, usuarioId, institucional, acessorios } =
-    req.body;
+  const { recursoId, observacao, usuarioId, institucional, acessorios } = req.body;
   const adminId = req.usuario!.id;
 
   if (institucional && !observacao?.trim()) {
@@ -201,44 +286,59 @@ export async function reservar(req: Request, res: Response) {
       }
     }
 
-    const validacao = await validarPedido(recursoId, dataInicio, dataFim, acessorios);
+    const resolvidos = await resolverPeriodos(req.body);
+    if (!resolvidos.ok) {
+      return res.status(resolvidos.status).json({ error: resolvidos.error });
+    }
+    const validacao = await validarPeriodos(recursoId, resolvidos.periodos, acessorios);
     if (!validacao.ok) {
       return res.status(validacao.status).json({ error: validacao.error });
     }
-    const { inicio, fim, itens } = validacao;
 
-    const reserva = await prisma.$transaction(async (tx) => {
-      await garantirAcessorios(tx, itens, inicio, fim);
-      return tx.solicitacao.create({
-        data: {
-          recursoId,
-          usuarioId: institucional ? adminId : usuarioId,
-          dataInicio: inicio,
-          dataFim: fim,
-          observacao: observacao?.trim() || null,
-          status: 'APROVADA',
-          institucional: Boolean(institucional),
-          lancadoPorId: adminId,
-          aprovadoPorId: adminId,
-          acessorios: { create: itens },
-        },
-        include: incluirDetalhes,
-      });
+    const reservas = await prisma.$transaction(async (tx) => {
+      const criadas = [];
+      for (const p of validacao.pedidos) {
+        await garantirAcessorios(tx, p.itens, p.inicio, p.fim);
+        criadas.push(
+          await tx.solicitacao.create({
+            data: {
+              recursoId,
+              usuarioId: institucional ? adminId : usuarioId,
+              dataInicio: p.inicio,
+              dataFim: p.fim,
+              turnoId: p.turnoId,
+              observacao: observacao?.trim() || null,
+              status: 'APROVADA',
+              institucional: Boolean(institucional),
+              lancadoPorId: adminId,
+              aprovadoPorId: adminId,
+              acessorios: { create: p.itens },
+            },
+            include: incluirDetalhes,
+          })
+        );
+      }
+      return criadas;
     });
 
     // Pedidos pendentes no mesmo horário agora vão colidir na aprovação;
     // o front avisa o admin para recusá-los.
-    const pendentesConflitantes = await prisma.solicitacao.count({
-      where: {
-        recursoId,
-        status: 'PENDENTE',
-        dataInicio: { lt: fim },
-        dataFim: { gt: inicio },
-      },
-    });
+    const comPendentes = await Promise.all(
+      reservas.map(async (reserva) => ({
+        ...reserva,
+        pendentesConflitantes: await prisma.solicitacao.count({
+          where: {
+            recursoId,
+            status: 'PENDENTE',
+            dataInicio: { lt: reserva.dataFim },
+            dataFim: { gt: reserva.dataInicio },
+          },
+        }),
+      }))
+    );
 
-    notificar.reservaLancada(reserva);
-    return res.status(201).json({ ...reserva, pendentesConflitantes });
+    reservas.forEach((r) => notificar.reservaLancada(r));
+    return res.status(201).json(resolvidos.porTurno ? comPendentes : comPendentes[0]);
   } catch (error) {
     if (error instanceof ErroNegocio) {
       return res.status(error.status).json({ error: error.message });

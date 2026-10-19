@@ -10,6 +10,7 @@ export interface ReservaEmail {
   usuario: { nome: string; email: string };
   recurso: { nome: string; localizacao: string | null };
   acessorios?: { quantidade: number; acessorio: { nome: string; localizacao: string | null } }[];
+  turno?: { nome: string } | null;
 }
 
 const AZUL = '#0b2149';
@@ -34,7 +35,7 @@ function primeiroNome(nome: string) {
 function linhasDaReserva(r: ReservaEmail, comRetirada = false) {
   const linhas: [string, string][] = [
     ['Recurso', r.recurso.nome],
-    ['Quando', formatarPeriodo(r.dataInicio, r.dataFim)],
+    ['Quando', `${r.turno ? `${r.turno.nome} · ` : ''}${formatarPeriodo(r.dataInicio, r.dataFim)}`],
   ];
   if (comRetirada && r.recurso.localizacao) linhas.push(['Retirar em', r.recurso.localizacao]);
   if (r.acessorios?.length) {
