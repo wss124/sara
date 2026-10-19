@@ -40,3 +40,9 @@ export async function removerFotoRecurso(id) {
 export function urlFotoRecurso(foto) {
   return foto ? `${api.defaults.baseURL}${foto}` : null;
 }
+
+// Situação de cada turno do recurso, dia a dia, a partir de `inicio` (AAAA-MM-DD)
+export async function consultarDisponibilidade(id, inicio, dias = 7) {
+  const response = await api.get(`/recursos/${id}/disponibilidade`, { params: { inicio, dias } });
+  return response.data;
+}

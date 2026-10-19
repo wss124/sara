@@ -1,26 +1,46 @@
 import { useMemo, useState } from 'react';
-import { Spin } from 'antd';
+import { Spin, Tag } from 'antd';
 import dayjs from 'dayjs';
+import { situacaoDoTurno, SITUACOES_TURNO } from '../../utils/turnos';
 
-const ABERTURA = 7; // 07:00
-const FECHAMENTO = 22; // 22:00
+const ABERTURA = 7 * 60; // 07:00, em minutos
+const FECHAMENTO = 22 * 60; // 22:00
 const DURACAO_BLOCO = 30; // minutos
 
-const TURNOS = [
-  { label: 'Manhã', de: ABERTURA, ate: 12 },
-  { label: 'Tarde', de: 12, ate: 18 },
-  { label: 'Noite', de: 18, ate: FECHAMENTO },
-];
-
 const hora = (d) => d.format('HH:mm');
+const emMinutos = (h) => {
+  const [hh, mm] = h.split(':').map(Number);
+  return hh * 60 + mm;
+};
+
+// Linhas da grade em ordem: cada turno cadastrado e, entre eles, os
+// intervalos (horários fora dos turnos, que também podem ser reservados).
+// Sem turnos, a grade é uma linha só.
+function montarLinhas(turnos) {
+  const ordenados = [...turnos].sort((a, b) => emMinutos(a.horaInicio) - emMinutos(b.horaInicio));
+  const primeiro = Math.min(ABERTURA, ...ordenados.map((t) => emMinutos(t.horaInicio)));
+  const abertura = Math.floor(primeiro / DURACAO_BLOCO) * DURACAO_BLOCO;
+  const fechamento = Math.max(FECHAMENTO, ...ordenados.map((t) => emMinutos(t.horaFim)));
+  const linhas = [];
+  let cursor = abertura;
+  for (const turno of ordenados) {
+    const de = emMinutos(turno.horaInicio);
+    if (cursor < de) linhas.push({ chave: `intervalo-${cursor}`, de: cursor, ate: de });
+    linhas.push({ chave: turno.id, turno, de: Math.max(de, cursor), ate: emMinutos(turno.horaFim) });
+    cursor = Math.max(cursor, emMinutos(turno.horaFim));
+  }
+  if (cursor < fechamento) linhas.push({ chave: `intervalo-${cursor}`, de: cursor, ate: fechamento });
+  return { linhas, abertura, fechamento };
+}
 
 // Monta os blocos de 30 min do dia, marcando os que já passaram ou que
 // colidem com alguma reserva aprovada do recurso.
-function montarBlocos(data, reservas) {
+function montarBlocos(data, reservas, abertura, fechamentoMin) {
   const agora = dayjs();
   const blocos = [];
-  let inicio = data.hour(ABERTURA).minute(0).second(0).millisecond(0);
-  const fechamento = data.hour(FECHAMENTO).minute(0).second(0).millisecond(0);
+  const meiaNoite = data.startOf('day');
+  let inicio = meiaNoite.add(abertura, 'minute');
+  const fechamento = meiaNoite.add(fechamentoMin, 'minute');
 
   while (inicio.isBefore(fechamento)) {
     const fim = inicio.add(DURACAO_BLOCO, 'minute');
@@ -35,13 +55,16 @@ function montarBlocos(data, reservas) {
 
 // Grade de horários clicável: o primeiro clique marca o início e o segundo
 // marca o fim. Usada como campo de formulário (value = [início, fim]).
-function TimeSlotGrid({ data, reservas, value, onChange }) {
+const SEM_TURNOS = [];
+
+function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, value, onChange }) {
   const [inicioPendente, setInicioPendente] = useState(null);
   const [hover, setHover] = useState(null);
 
+  const { linhas, abertura, fechamento } = useMemo(() => montarLinhas(turnos), [turnos]);
   const blocos = useMemo(
-    () => (data && reservas ? montarBlocos(data, reservas) : []),
-    [data, reservas]
+    () => (data && reservas ? montarBlocos(data, reservas, abertura, fechamento) : []),
+    [data, reservas, abertura, fechamento]
   );
 
   if (!data) {
@@ -92,13 +115,23 @@ function TimeSlotGrid({ data, reservas, value, onChange }) {
 
   return (
     <div className="slots">
-      {TURNOS.map((turno) => {
+      {linhas.map((linha) => {
+        const minutoDoDia = (d) => d.diff(data.startOf('day'), 'minute');
         const doTurno = blocos
           .map((b, i) => ({ ...b, i }))
-          .filter((b) => b.inicio.hour() >= turno.de && b.inicio.hour() < turno.ate);
+          .filter((b) => minutoDoDia(b.inicio) >= linha.de && minutoDoDia(b.inicio) < linha.ate);
+        if (doTurno.length === 0) return null;
+        const situacao = linha.turno && situacaoDoTurno(data, linha.turno, reservas).situacao;
         return (
-          <div className="slots-turno" key={turno.label}>
-            <span className="slots-turno-label">{turno.label}</span>
+          <div className={`slots-turno${linha.turno ? '' : ' is-intervalo'}`} key={linha.chave}>
+            <span className="slots-turno-label">
+              {linha.turno ? linha.turno.nome : turnos.length > 0 ? 'Intervalo' : 'Horários'}
+              {situacao && (
+                <Tag color={SITUACOES_TURNO[situacao].color} className="slots-turno-tag">
+                  {SITUACOES_TURNO[situacao].label}
+                </Tag>
+              )}
+            </span>
             <div className="slots-grid">
               {doTurno.map((b) => {
                 const selecionado = faixa && b.i >= faixa[0] && b.i <= faixa[1];

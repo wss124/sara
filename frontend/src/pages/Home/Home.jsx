@@ -12,6 +12,8 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { carregarDashboard } from '../../services/dashboardService';
+import { listarTurnos } from '../../services/turnoService';
+import { periodoDoTurno } from '../../utils/turnos';
 import { getUsuarioLogado, responsavelPela } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
 import { capaDoRecurso } from '../../utils/recursoFoto';
@@ -68,6 +70,8 @@ function Home() {
   const [dados, setDados] = useState(null);
   const [atualizando, setAtualizando] = useState(false);
   const [filtro, setFiltro] = useState('TODOS');
+  const [turnos, setTurnos] = useState([]);
+  const [turnoAgenda, setTurnoAgenda] = useState('TODOS');
 
   const carregar = () => {
     setAtualizando(true);
@@ -83,6 +87,12 @@ function Home() {
     carregar();
     const timer = setInterval(carregar, INTERVALO_MS);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    listarTurnos()
+      .then((lista) => setTurnos(lista.filter((t) => t.ativo)))
+      .catch(() => {});
   }, []);
 
   if (!dados) {
@@ -149,6 +159,17 @@ function Home() {
     if (filtro === 'MANUTENCAO') return r.situacao === 'EM_MANUTENCAO' || r.situacao === 'INDISPONIVEL';
     return true;
   });
+
+  // Agenda do dia filtrada pelas reservas que caem no turno escolhido
+  const turnoFiltro = turnos.find((t) => t.id === turnoAgenda);
+  const agendaFiltrada = turnoFiltro
+    ? (() => {
+        const [inicio, fim] = periodoDoTurno(dayjs(), turnoFiltro);
+        return reservasHoje.filter(
+          (r) => dayjs(r.dataInicio).isBefore(fim) && dayjs(r.dataFim).isAfter(inicio)
+        );
+      })()
+    : reservasHoje;
 
   return (
     <div className="home">
@@ -260,13 +281,26 @@ function Home() {
                 <h3>Agenda de hoje</h3>
                 <span className="home-panel-sub">{dayjs().format('dddd, DD/MM')}</span>
               </div>
+              {turnos.length > 0 && (
+                <Segmented
+                  size="small"
+                  value={turnoAgenda}
+                  onChange={setTurnoAgenda}
+                  options={[
+                    { label: 'Todos', value: 'TODOS' },
+                    ...turnos.map((t) => ({ label: t.nome, value: t.id })),
+                  ]}
+                />
+              )}
             </div>
 
-            {reservasHoje.length === 0 ? (
-              <Empty description="Nenhuma reserva para hoje" />
+            {agendaFiltrada.length === 0 ? (
+              <Empty
+                description={turnoFiltro ? 'Nenhuma reserva neste turno hoje' : 'Nenhuma reserva para hoje'}
+              />
             ) : (
               <ul className="agenda">
-                {reservasHoje.map((reserva) => {
+                {agendaFiltrada.map((reserva) => {
                   const emAndamento = reserva.status === 'EM_ANDAMENTO';
                   const encerrada =
                     reserva.status === 'CONCLUIDA' ||

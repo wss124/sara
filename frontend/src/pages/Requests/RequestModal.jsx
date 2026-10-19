@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Form, Select, DatePicker, Input, Segmented, Alert, message } from 'antd';
 import dayjs from 'dayjs';
 import { EnvironmentOutlined } from '@ant-design/icons';
@@ -19,7 +19,16 @@ import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
 
 // Com `admin`, o modal vira "Nova reserva": o admin escolhe para quem é a
 // reserva (ou uso institucional) e ela já é registrada como aprovada.
-function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated }) {
+// dataInicial ("AAAA-MM-DD") e turnoInicial vêm da agenda semanal do recurso.
+function RequestModal({
+  open,
+  recursoInicial,
+  dataInicial,
+  turnoInicial,
+  admin = false,
+  onClose,
+  onCreated,
+}) {
   const [form] = Form.useForm();
   const [recursos, setRecursos] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
@@ -28,6 +37,9 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   // para não exibir dados de uma consulta anterior enquanto a nova carrega
   const [ocupacao, setOcupacao] = useState({ chave: null, lista: null });
   const [salvando, setSalvando] = useState(false);
+  // Turno vindo da agenda, aplicado depois que a troca de recurso/data
+  // limpa a seleção
+  const turnoPendente = useRef(null);
   // Pedidos pendentes de outras pessoas no período escolhido (fila)
   const [fila, setFila] = useState({ chave: null, pendentes: 0 });
 
@@ -61,7 +73,14 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   useEffect(() => {
     if (!open) return;
     form.resetFields();
-    form.setFieldsValue({ recursoId: recursoInicial, paraQuem: 'USUARIO', modo: 'TURNO' });
+    form.setFieldsValue({
+      recursoId: recursoInicial,
+      paraQuem: 'USUARIO',
+      modo: 'TURNO',
+      data: dataInicial ? dayjs(dataInicial) : undefined,
+      turnoIds: turnoInicial ? [turnoInicial] : [],
+    });
+    turnoPendente.current = turnoInicial ?? null;
     listarTurnos()
       .then((lista) => {
         const ativos = lista.filter((t) => t.ativo);
@@ -77,12 +96,16 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
         .then((lista) => setUsuarios(lista.filter((u) => u.perfil !== 'ADMIN')))
         .catch(() => message.error('Erro ao carregar usuários.'));
     }
-  }, [open, recursoInicial, admin, form]);
+  }, [open, recursoInicial, dataInicial, turnoInicial, admin, form]);
 
   // Busca as reservas aprovadas do recurso no dia escolhido. Trocar o recurso
   // ou a data invalida o horário e os turnos já marcados.
   useEffect(() => {
-    form.setFieldsValue({ horario: undefined, turnoIds: [] });
+    form.setFieldsValue({
+      horario: undefined,
+      turnoIds: chave && turnoPendente.current ? [turnoPendente.current] : [],
+    });
+    if (chave) turnoPendente.current = null;
     if (!chave) return;
     let cancelado = false;
     consultarOcupacao(
@@ -269,6 +292,7 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
               key={chave}
               data={chave ? data : null}
               reservas={reservas}
+              turnos={turnos}
             />
           </Form.Item>
         )}

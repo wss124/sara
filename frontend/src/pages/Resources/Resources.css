@@ -181,6 +181,8 @@
 }
 .resource-card-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
   justify-content: space-between;
   min-height: 32px;
@@ -224,6 +226,11 @@
   background: #fbe9e4;
 }
 
+.resource-agenda {
+  margin-left: auto;
+  font-weight: 600;
+  color: #2b5797 !important;
+}
 .resource-request {
   border-radius: 999px !important;
   font-weight: 600;

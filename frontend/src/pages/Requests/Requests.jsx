@@ -16,8 +16,11 @@ function Requests() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Vindo da página de recursos pelo botão "Solicitar", já abre o formulário
+  // Vindo da página de recursos (botão "Solicitar" ou um turno livre da
+  // agenda), já abre o formulário preenchido
   const recursoInicial = location.state?.recursoId;
+  const dataInicial = location.state?.data;
+  const turnoInicial = location.state?.turnoId;
 
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -175,6 +178,8 @@ function Requests() {
       <RequestModal
         open={modalAberto}
         recursoInicial={recursoInicial}
+        dataInicial={dataInicial}
+        turnoInicial={turnoInicial}
         onClose={fecharModal}
         onCreated={() => {
           fecharModal();

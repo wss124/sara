@@ -29,6 +29,7 @@ import {
   CameraOutlined,
   ToolOutlined,
   EnvironmentOutlined,
+  ScheduleOutlined,
 } from '@ant-design/icons';
 import {
   listarRecursos,
@@ -42,6 +43,7 @@ import {
 } from '../../services/recursoService';
 import { ESTADOS_RECURSO, ESTADOS_MANUAIS, recursoBloqueado } from '../../utils/estadoRecurso';
 import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
+import AgendaSemanalModal from '../../components/AgendaSemanalModal';
 import { listarAcessorios, definirKitRecurso } from '../../services/acessorioService';
 import KitEditor from './KitEditor';
 import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
@@ -84,6 +86,7 @@ function Resources() {
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
   const [afetadas, setAfetadas] = useState(null);
+  const [agendaDe, setAgendaDe] = useState(null);
   const [acessorios, setAcessorios] = useState([]);
   const [form] = Form.useForm();
   const tipoNoForm = Form.useWatch('tipo', form);
@@ -335,6 +338,20 @@ function Resources() {
                   <div className="resource-card-footer">
                     <span className="resource-type">{TIPOS[recurso.tipo].label}</span>
 
+                    {recurso.ativo && (
+                      <Tooltip title="Agenda da semana por turno">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<ScheduleOutlined />}
+                          className="resource-agenda"
+                          onClick={() => setAgendaDe(recurso)}
+                        >
+                          Agenda
+                        </Button>
+                      </Tooltip>
+                    )}
+
                     {recurso.ativo && !isAdmin && (
                       <Tooltip
                         title={recursoBloqueado(recurso) ? 'Indisponível para reserva no momento' : ''}
@@ -413,6 +430,17 @@ function Resources() {
           })}
         </Row>
       )}
+
+      <AgendaSemanalModal
+        recurso={agendaDe}
+        onClose={() => setAgendaDe(null)}
+        onEscolher={
+          isAdmin
+            ? undefined
+            : ({ data, turnoId }) =>
+                navigate('/requests', { state: { recursoId: agendaDe.id, data, turnoId } })
+        }
+      />
 
       {afetadas && (
         <ReservasAfetadasModal
