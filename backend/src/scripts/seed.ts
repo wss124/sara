@@ -25,12 +25,12 @@ const RECURSOS = [
   { nome: 'Notebook Dell', tipo: 'EQUIPAMENTO', descricao: 'Para apresentações', localizacao: 'Coordenação do curso', estado: 'EM_MANUTENCAO' },
 ] as const;
 
-// Turnos de aula. Horários provisórios: confirmar com a coordenação do campus
-// e ajustar na tela Turnos (o seed só cria os que ainda não existem).
+// Turnos de aula do campus. Podem ser ajustados na tela Turnos (o seed só
+// cria os que ainda não existem).
 const TURNOS = [
-  { nome: 'Manhã', horaInicio: '07:30', horaFim: '12:00', ordem: 1 },
-  { nome: 'Tarde', horaInicio: '13:30', horaFim: '18:00', ordem: 2 },
-  { nome: 'Noite', horaInicio: '18:30', horaFim: '22:00', ordem: 3 },
+  { nome: 'Manhã', horaInicio: '07:00', horaFim: '11:00', ordem: 1 },
+  { nome: 'Tarde', horaInicio: '14:00', horaFim: '18:00', ordem: 2 },
+  { nome: 'Noite', horaInicio: '19:00', horaFim: '22:00', ordem: 3 },
 ];
 
 const ACESSORIOS = [
