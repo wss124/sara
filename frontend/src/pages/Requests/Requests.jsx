@@ -7,7 +7,7 @@ import {
   listarMinhasSolicitacoes,
   cancelarSolicitacao,
 } from '../../services/solicitacaoService';
-import { formatarPeriodo, descreverAcessorios } from '../../utils/format';
+import { periodoDaSolicitacao, descreverAcessorios } from '../../utils/format';
 import RequestModal from './RequestModal';
 import { STATUS, ICONES_TIPO } from './constants';
 import './Requests.css';
@@ -115,7 +115,7 @@ function Requests() {
 
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
-                <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
+                <span className="request-period">{periodoDaSolicitacao(s)}</span>
                 {s.recurso.localizacao && (
                   <span className="request-location">
                     <EnvironmentOutlined /> Retirar em: {s.recurso.localizacao}

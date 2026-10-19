@@ -11,7 +11,7 @@ import { carregarMovimentacoes } from '../../services/solicitacaoService';
 import DevolucaoModal from './DevolucaoModal';
 import RetiradaModal from './RetiradaModal';
 import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
-import { formatarPeriodo, responsavelPela, descreverAcessorios } from '../../utils/format';
+import { periodoDaSolicitacao, responsavelPela, descreverAcessorios } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
 import './Handovers.css';
@@ -45,7 +45,7 @@ function Secao({ titulo, descricao, vazio, itens, renderAcoes, renderDetalhe }) 
               <div className="request-icon">{ICONES_TIPO[s.recurso.tipo]}</div>
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
-                <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
+                <span className="request-period">{periodoDaSolicitacao(s)}</span>
                 <span className="request-meta">{responsavelPela(s)}</span>
                 {s.recurso.localizacao && (
                   <span className="request-location">

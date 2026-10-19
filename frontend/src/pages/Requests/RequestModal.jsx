@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Form, Select, DatePicker, Input, Segmented, message } from 'antd';
 import dayjs from 'dayjs';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import TimeSlotGrid from './TimeSlotGrid';
+import TurnoPicker from './TurnoPicker';
 import AcessoriosDoPedido from './AcessoriosDoPedido';
 import { listarRecursos } from '../../services/recursoService';
 import {
@@ -11,6 +12,8 @@ import {
   lancarReserva,
 } from '../../services/solicitacaoService';
 import { listarUsuarios } from '../../services/usuarioService';
+import { listarTurnos } from '../../services/turnoService';
+import { periodoDoTurno } from '../../utils/turnos';
 import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
 
 // Com `admin`, o modal vira "Nova reserva": o admin escolhe para quem é a
@@ -19,6 +22,7 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   const [form] = Form.useForm();
   const [recursos, setRecursos] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
+  const [turnos, setTurnos] = useState([]);
   // Reservas guardadas junto com a combinação recurso/dia a que pertencem,
   // para não exibir dados de uma consulta anterior enquanto a nova carrega
   const [ocupacao, setOcupacao] = useState({ chave: null, lista: null });
@@ -28,15 +32,37 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   const data = Form.useWatch('data', form);
   const paraQuem = Form.useWatch('paraQuem', form);
   const horario = Form.useWatch('horario', form);
+  const modo = Form.useWatch('modo', form);
+  const turnoIds = Form.useWatch('turnoIds', form);
+  const porTurno = modo === 'TURNO';
   const institucional = admin && paraQuem === 'INSTITUCIONAL';
   const recursoSelecionado = recursos.find((r) => r.id === recursoId);
   const chave = recursoId && data ? `${recursoId}-${data.valueOf()}` : null;
   const reservas = chave && ocupacao.chave === chave ? ocupacao.lista : null;
 
+  // Período considerado para o estoque de acessórios: no modo turno, do início
+  // do primeiro turno escolhido ao fim do último
+  const periodoTurnos = useMemo(() => {
+    if (!porTurno || !data || !turnoIds?.length) return null;
+    const periodos = turnos.filter((t) => turnoIds.includes(t.id)).map((t) => periodoDoTurno(data, t));
+    if (periodos.length === 0) return null;
+    const inicio = periodos.reduce((m, [i]) => (i.isBefore(m) ? i : m), periodos[0][0]);
+    const fim = periodos.reduce((m, [, f]) => (f.isAfter(m) ? f : m), periodos[0][1]);
+    return [inicio, fim];
+  }, [porTurno, data, turnoIds, turnos]);
+  const periodo = porTurno ? periodoTurnos : horario;
+
   useEffect(() => {
     if (!open) return;
     form.resetFields();
-    form.setFieldsValue({ recursoId: recursoInicial, paraQuem: 'USUARIO' });
+    form.setFieldsValue({ recursoId: recursoInicial, paraQuem: 'USUARIO', modo: 'TURNO' });
+    listarTurnos()
+      .then((lista) => {
+        const ativos = lista.filter((t) => t.ativo);
+        setTurnos(ativos);
+        if (ativos.length === 0) form.setFieldValue('modo', 'HORARIO');
+      })
+      .catch(() => message.error('Erro ao carregar turnos.'));
     listarRecursos()
       .then((lista) => setRecursos(lista.filter((r) => r.ativo)))
       .catch(() => message.error('Erro ao carregar recursos.'));
@@ -48,9 +74,9 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
   }, [open, recursoInicial, admin, form]);
 
   // Busca as reservas aprovadas do recurso no dia escolhido. Trocar o recurso
-  // ou a data invalida o horário já marcado na grade.
+  // ou a data invalida o horário e os turnos já marcados.
   useEffect(() => {
-    form.setFieldValue('horario', undefined);
+    form.setFieldsValue({ horario: undefined, turnoIds: [] });
     if (!chave) return;
     let cancelado = false;
     consultarOcupacao(
@@ -67,34 +93,48 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
 
   const salvar = async () => {
     const valores = await form.validateFields();
-    const [inicio, fim] = valores.horario;
 
     const pedido = {
       recursoId: valores.recursoId,
-      dataInicio: inicio.toISOString(),
-      dataFim: fim.toISOString(),
       observacao: valores.observacao,
       acessorios: (valores.acessorios ?? []).map((id) => ({ id })),
+      ...(porTurno
+        ? { data: valores.data.format('YYYY-MM-DD'), turnoIds: valores.turnoIds }
+        : {
+            dataInicio: valores.horario[0].toISOString(),
+            dataFim: valores.horario[1].toISOString(),
+          }),
     };
 
     setSalvando(true);
     try {
       if (admin) {
-        const reserva = await lancarReserva({
+        // Por turno a API devolve uma reserva por turno escolhido
+        const resposta = await lancarReserva({
           ...pedido,
           institucional,
           usuarioId: institucional ? undefined : valores.usuarioId,
         });
-        message.success('Reserva registrada e já aprovada.');
-        if (reserva.pendentesConflitantes > 0) {
+        const reservas = [resposta].flat();
+        message.success(
+          reservas.length > 1
+            ? `${reservas.length} reservas registradas e já aprovadas.`
+            : 'Reserva registrada e já aprovada.'
+        );
+        const pendentes = reservas.reduce((soma, r) => soma + r.pendentesConflitantes, 0);
+        if (pendentes > 0) {
           message.warning(
-            `Há ${reserva.pendentesConflitantes} solicitação(ões) pendente(s) nesse horário. Recuse-as em Aprovações.`,
+            `Há ${pendentes} solicitação(ões) pendente(s) nesse horário. Recuse-as em Aprovações.`,
             6
           );
         }
       } else {
-        await criarSolicitacao(pedido);
-        message.success('Solicitação enviada! Aguarde a aprovação do administrador.');
+        const criadas = [await criarSolicitacao(pedido)].flat();
+        message.success(
+          criadas.length > 1
+            ? `${criadas.length} solicitações enviadas, uma por turno. Aguarde a aprovação do administrador.`
+            : 'Solicitação enviada! Aguarde a aprovação do administrador.'
+        );
       }
       onCreated();
     } catch (error) {
@@ -182,21 +222,42 @@ function RequestModal({ open, recursoInicial, admin = false, onClose, onCreated 
           />
         </Form.Item>
 
-        <Form.Item
-          name="horario"
-          label="Horário"
-          rules={[{ required: true, message: 'Escolha o horário na grade.' }]}
-        >
-          <TimeSlotGrid
-            key={chave}
-            data={chave ? data : null}
-            reservas={reservas}
+        <Form.Item name="modo" label="Reservar">
+          <Segmented
+            block
+            options={[
+              { label: 'Por turno', value: 'TURNO', disabled: turnos.length === 0 },
+              { label: 'Por horário', value: 'HORARIO' },
+            ]}
           />
         </Form.Item>
 
+        {porTurno ? (
+          <Form.Item
+            name="turnoIds"
+            label="Turnos"
+            extra="Marque um ou mais turnos. Cada turno vira um pedido separado."
+            rules={[{ required: true, type: 'array', min: 1, message: 'Escolha pelo menos um turno.' }]}
+          >
+            <TurnoPicker data={chave ? data : null} reservas={reservas} turnos={turnos} />
+          </Form.Item>
+        ) : (
+          <Form.Item
+            name="horario"
+            label="Horário"
+            rules={[{ required: true, message: 'Escolha o horário na grade.' }]}
+          >
+            <TimeSlotGrid
+              key={chave}
+              data={chave ? data : null}
+              reservas={reservas}
+            />
+          </Form.Item>
+        )}
+
         {recursoSelecionado?.acessorios?.length > 0 && (
           <Form.Item name="acessorios" label="Itens que acompanham">
-            <AcessoriosDoPedido recursoId={recursoId} periodo={horario} />
+            <AcessoriosDoPedido recursoId={recursoId} periodo={periodo} />
           </Form.Item>
         )}
 

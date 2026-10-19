@@ -11,6 +11,13 @@ export function formatarPeriodo(inicio, fim) {
   return `${i.format('DD/MM/YYYY HH:mm')} – ${f.format('DD/MM/YYYY HH:mm')}`;
 }
 
+// Período de uma solicitação, com o turno quando foi pedida por turno.
+// Ex.: "Tarde · qui, 16/10/2026 · 14:00 – 18:00"
+export function periodoDaSolicitacao(s) {
+  const periodo = formatarPeriodo(s.dataInicio, s.dataFim);
+  return s.turno ? `${s.turno.nome} · ${periodo}` : periodo;
+}
+
 export function getUsuarioLogado() {
   try {
     return JSON.parse(localStorage.getItem('sara_user'));

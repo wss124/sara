@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Input, Button, Empty, message } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 import { cancelarPeloAdmin } from '../services/solicitacaoService';
-import { formatarPeriodo, responsavelPela } from '../utils/format';
+import { periodoDaSolicitacao, responsavelPela } from '../utils/format';
 
 const MOTIVO_PADRAO = 'O recurso precisou ir para manutenção.';
 
@@ -59,7 +59,7 @@ function ReservasAfetadasModal({ recurso, reservas, onClose }) {
           {pendentes.map((r) => (
             <div className="request-item" key={r.id}>
               <div className="request-info">
-                <span className="request-period">{formatarPeriodo(r.dataInicio, r.dataFim)}</span>
+                <span className="request-period">{periodoDaSolicitacao(r)}</span>
                 <span className="request-meta">{responsavelPela(r)}</span>
               </div>
               <Button
