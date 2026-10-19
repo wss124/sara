@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Form, Select, DatePicker, Input, Segmented, Alert, message } from 'antd';
+import { Modal, Form, Select, DatePicker, Input, Segmented, Alert, Checkbox, message } from 'antd';
 import dayjs from 'dayjs';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import TimeSlotGrid from './TimeSlotGrid';
 import TurnoPicker from './TurnoPicker';
 import AcessoriosDoPedido from './AcessoriosDoPedido';
+import SeriePreview from './SeriePreview';
+import { criarSerie } from '../../services/recorrenciaService';
 import { listarRecursos } from '../../services/recursoService';
 import {
   consultarOcupacao,
@@ -20,6 +22,21 @@ import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
 // Com `admin`, o modal vira "Nova reserva": o admin escolhe para quem é a
 // reserva (ou uso institucional) e ela já é registrada como aprovada.
 // dataInicial ("AAAA-MM-DD") e turnoInicial vêm da agenda semanal do recurso.
+// O professor também pode repetir o pedido toda semana (série).
+
+// Limite da repetição, igual ao do backend (um semestre)
+const SERIE_MAX_DIAS = 183;
+
+const DIAS_DA_SEMANA = [
+  { label: 'Seg', value: 1 },
+  { label: 'Ter', value: 2 },
+  { label: 'Qua', value: 3 },
+  { label: 'Qui', value: 4 },
+  { label: 'Sex', value: 5 },
+  { label: 'Sáb', value: 6 },
+  { label: 'Dom', value: 0 },
+];
+
 function RequestModal({
   open,
   recursoInicial,
@@ -49,7 +66,12 @@ function RequestModal({
   const horario = Form.useWatch('horario', form);
   const modo = Form.useWatch('modo', form);
   const turnoIds = Form.useWatch('turnoIds', form);
+  const repetir = Form.useWatch('repetir', form);
+  const diasSemana = Form.useWatch('diasSemana', form);
+  const ateData = Form.useWatch('ateData', form);
+  const acessoriosEscolhidos = Form.useWatch('acessorios', form);
   const porTurno = modo === 'TURNO';
+  const semanal = !admin && repetir === 'SEMANAL';
   const institucional = admin && paraQuem === 'INSTITUCIONAL';
   const recursoSelecionado = recursos.find((r) => r.id === recursoId);
   const chave = recursoId && data ? `${recursoId}-${data.valueOf()}` : null;
@@ -70,6 +92,24 @@ function RequestModal({
     !admin && recursoId && periodo ? `${recursoId}-${periodo[0].valueOf()}-${periodo[1].valueOf()}` : null;
   const pendentesNaFila = chaveFila && fila.chave === chaveFila ? fila.pendentes : 0;
 
+  // Parâmetros da série para a prévia das datas; null enquanto faltar algo.
+  // Por turno, a série usa um turno só.
+  const parametrosSerie = useMemo(() => {
+    if (!semanal || !recursoId || !data || !diasSemana?.length || !ateData) return null;
+    const horarioSerie = porTurno
+      ? turnoIds?.length === 1 && { turnoId: turnoIds[0] }
+      : horario && { horaInicio: horario[0].format('HH:mm'), horaFim: horario[1].format('HH:mm') };
+    if (!horarioSerie) return null;
+    return {
+      recursoId,
+      diasSemana,
+      dataInicio: data.format('YYYY-MM-DD'),
+      dataFim: ateData.format('YYYY-MM-DD'),
+      ...horarioSerie,
+      acessorios: (acessoriosEscolhidos ?? []).map((id) => ({ id })),
+    };
+  }, [semanal, recursoId, data, diasSemana, ateData, porTurno, turnoIds, horario, acessoriosEscolhidos]);
+
   useEffect(() => {
     if (!open) return;
     form.resetFields();
@@ -79,6 +119,9 @@ function RequestModal({
       modo: 'TURNO',
       data: dataInicial ? dayjs(dataInicial) : undefined,
       turnoIds: turnoInicial ? [turnoInicial] : [],
+      repetir: 'UMA_VEZ',
+      diasSemana: [],
+      ignorarDatas: [],
     });
     turnoPendente.current = turnoInicial ?? null;
     listarTurnos()
@@ -132,8 +175,42 @@ function RequestModal({
     };
   }, [chaveFila, recursoId, periodo]);
 
+  // Ao ligar a repetição (ou trocar o primeiro dia sem dias marcados), já
+  // sugere o dia da semana da data escolhida
+  const aoMudarValores = (mudou, valores) => {
+    if (('repetir' in mudou || 'data' in mudou) && valores.repetir === 'SEMANAL') {
+      if (!valores.diasSemana?.length && valores.data) form.setFieldValue('diasSemana', [valores.data.day()]);
+    }
+  };
+
+  const enviarSerie = async () => {
+    const resultado = await criarSerie({
+      ...parametrosSerie,
+      observacao: form.getFieldValue('observacao'),
+      ignorarDatas: form.getFieldValue('ignorarDatas') ?? [],
+    });
+    message.success(`Série enviada: ${resultado.criadas} data(s) aguardam a aprovação do administrador.`);
+    if (resultado.puladas.length > 0) {
+      message.warning(`${resultado.puladas.length} data(s) indisponível(is) ficaram de fora.`, 6);
+    }
+  };
+
   const salvar = async () => {
     const valores = await form.validateFields();
+
+    if (semanal) {
+      if (!parametrosSerie) return;
+      setSalvando(true);
+      try {
+        await enviarSerie();
+        onCreated();
+      } catch (error) {
+        message.error(error.response?.data?.error || 'Erro ao enviar a série.');
+      } finally {
+        setSalvando(false);
+      }
+      return;
+    }
 
     const pedido = {
       recursoId: valores.recursoId,
@@ -194,13 +271,13 @@ function RequestModal({
       open={open}
       onCancel={onClose}
       onOk={salvar}
-      okText={admin ? 'Registrar reserva' : 'Enviar solicitação'}
+      okText={admin ? 'Registrar reserva' : semanal ? 'Enviar série' : 'Enviar solicitação'}
       cancelText="Cancelar"
       confirmLoading={salvando}
       width={720}
       forceRender
     >
-      <Form form={form} layout="vertical" requiredMark={false}>
+      <Form form={form} layout="vertical" requiredMark={false} onValuesChange={aoMudarValores}>
         {admin && (
           <>
             <Form.Item name="paraQuem" label="Para quem é a reserva">
@@ -255,7 +332,11 @@ function RequestModal({
           </p>
         )}
 
-        <Form.Item name="data" label="Data" rules={[{ required: true, message: 'Escolha a data.' }]}>
+        <Form.Item
+          name="data"
+          label={semanal ? 'Primeiro dia' : 'Data'}
+          rules={[{ required: true, message: 'Escolha a data.' }]}
+        >
           <DatePicker
             format="DD/MM/YYYY"
             style={{ width: '100%' }}
@@ -277,8 +358,15 @@ function RequestModal({
           <Form.Item
             name="turnoIds"
             label="Turnos"
-            extra="Marque um ou mais turnos. Cada turno vira um pedido separado."
-            rules={[{ required: true, type: 'array', min: 1, message: 'Escolha pelo menos um turno.' }]}
+            extra={
+              semanal
+                ? 'Na repetição semanal, escolha um turno.'
+                : 'Marque um ou mais turnos. Cada turno vira um pedido separado.'
+            }
+            rules={[
+              { required: true, type: 'array', min: 1, message: 'Escolha pelo menos um turno.' },
+              ...(semanal ? [{ type: 'array', max: 1, message: 'Na repetição semanal, escolha um turno só.' }] : []),
+            ]}
           >
             <TurnoPicker data={chave ? data : null} reservas={reservas} turnos={turnos} />
           </Form.Item>
@@ -297,13 +385,54 @@ function RequestModal({
           </Form.Item>
         )}
 
+        {!admin && (
+          <Form.Item name="repetir" label="Repetição">
+            <Segmented
+              block
+              options={[
+                { label: 'Só neste dia', value: 'UMA_VEZ' },
+                { label: 'Toda semana', value: 'SEMANAL' },
+              ]}
+            />
+          </Form.Item>
+        )}
+
+        {semanal && (
+          <>
+            <div className="serie-campos">
+              <Form.Item
+                name="diasSemana"
+                label="Dias da semana"
+                rules={[{ required: true, type: 'array', min: 1, message: 'Escolha os dias.' }]}
+              >
+                <Checkbox.Group options={DIAS_DA_SEMANA} />
+              </Form.Item>
+              <Form.Item
+                name="ateData"
+                label="Repetir até"
+                rules={[{ required: true, message: 'Escolha até quando repetir.' }]}
+              >
+                <DatePicker
+                  format="DD/MM/YYYY"
+                  disabledDate={(d) =>
+                    !data || d.isBefore(data, 'day') || d.isAfter(data.add(SERIE_MAX_DIAS, 'day'), 'day')
+                  }
+                />
+              </Form.Item>
+            </div>
+            <Form.Item name="ignorarDatas" label="Datas da série">
+              <SeriePreview parametros={parametrosSerie} />
+            </Form.Item>
+          </>
+        )}
+
         {recursoSelecionado?.acessorios?.length > 0 && (
           <Form.Item name="acessorios" label="Itens que acompanham">
             <AcessoriosDoPedido recursoId={recursoId} periodo={periodo} />
           </Form.Item>
         )}
 
-        {pendentesNaFila > 0 && (
+        {pendentesNaFila > 0 && !semanal && (
           <Alert
             type="warning"
             showIcon

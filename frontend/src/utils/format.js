@@ -18,6 +18,24 @@ export function periodoDaSolicitacao(s) {
   return s.turno ? `${s.turno.nome} · ${periodo}` : periodo;
 }
 
+const NOMES_DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+// Ex.: "toda terça", "todo sábado", "toda semana (terça e quinta)"
+export function descreverDias(diasSemana) {
+  const ordenados = [...diasSemana].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  const nomes = ordenados.map((d) => NOMES_DIAS[d]);
+  if (nomes.length === 1) return `${ordenados[0] === 0 || ordenados[0] === 6 ? 'todo' : 'toda'} ${nomes[0]}`;
+  return `toda semana (${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]})`;
+}
+
+// Ex.: "Toda terça, de 20/10 a 15/12/2026"
+export function descreverSerie(serie) {
+  const dias = descreverDias(serie.diasSemana);
+  const de = dayjs(serie.dataInicio).format('DD/MM');
+  const ate = dayjs(serie.dataFim).format('DD/MM/YYYY');
+  return `${dias.charAt(0).toUpperCase()}${dias.slice(1)}, de ${de} a ${ate}`;
+}
+
 export function getUsuarioLogado() {
   try {
     return JSON.parse(localStorage.getItem('sara_user'));

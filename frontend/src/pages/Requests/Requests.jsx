@@ -7,7 +7,8 @@ import {
   listarMinhasSolicitacoes,
   cancelarSolicitacao,
 } from '../../services/solicitacaoService';
-import { periodoDaSolicitacao, descreverAcessorios } from '../../utils/format';
+import { periodoDaSolicitacao, descreverAcessorios, descreverSerie } from '../../utils/format';
+import { cancelarSerie } from '../../services/recorrenciaService';
 import RequestModal from './RequestModal';
 import { STATUS, ICONES_TIPO } from './constants';
 import './Requests.css';
@@ -57,6 +58,16 @@ function Requests() {
       carregar();
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao cancelar solicitação.');
+    }
+  };
+
+  const cancelarATodas = async (recorrenciaId) => {
+    try {
+      const { removidas, canceladas } = await cancelarSerie(recorrenciaId);
+      message.success(`Série cancelada: ${removidas + canceladas} data(s) liberada(s).`);
+      carregar();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao cancelar a série.');
     }
   };
 
@@ -119,6 +130,9 @@ function Requests() {
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
                 <span className="request-period">{periodoDaSolicitacao(s)}</span>
+                {s.recorrencia && (
+                  <span className="request-serie">Série: {descreverSerie(s.recorrencia)}</span>
+                )}
                 {s.fila && (
                   <span className="request-fila">
                     {s.fila.posicao}º na fila: {s.fila.total} pedidos disputam este horário. O
@@ -169,6 +183,21 @@ function Requests() {
                     </Button>
                   </Popconfirm>
                 )}
+                {s.recorrencia &&
+                  (s.status === 'PENDENTE' || (s.status === 'APROVADA' && dayjs().isBefore(s.dataInicio))) && (
+                    <Popconfirm
+                      title="Cancelar a série inteira?"
+                      description="Datas pendentes são excluídas e reservas aprovadas que ainda não começaram são canceladas."
+                      okText="Cancelar série"
+                      cancelText="Voltar"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => cancelarATodas(s.recorrencia.id)}
+                    >
+                      <Button type="text" danger size="small">
+                        Cancelar série
+                      </Button>
+                    </Popconfirm>
+                  )}
               </div>
             </div>
           ))}

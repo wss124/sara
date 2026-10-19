@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Segmented, Popconfirm, Empty, Spin, Input, message } from 'antd';
+import { Button, Segmented, Popconfirm, Empty, Spin, Input, Modal, message } from 'antd';
 import dayjs from 'dayjs';
 import { CheckOutlined, CloseOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
@@ -10,7 +10,8 @@ import {
 } from '../../services/solicitacaoService';
 import RequestModal from '../Requests/RequestModal';
 import SemVagaModal from './SemVagaModal';
-import { periodoDaSolicitacao, descreverAcessorios } from '../../utils/format';
+import { periodoDaSolicitacao, descreverAcessorios, descreverSerie } from '../../utils/format';
+import { aprovarSerie, recusarSerie } from '../../services/recorrenciaService';
 import { STATUS, ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
 
@@ -45,6 +46,28 @@ function agruparDisputas(lista) {
     blocos.push(bloco);
   }
   return blocos;
+}
+
+// Blocos da lista: datas pendentes de uma mesma série semanal ficam juntas
+// (para aprovar ou recusar em lote); os demais pedidos são agrupados por
+// disputa de horário. Os blocos seguem a ordem da primeira data de cada um.
+function montarBlocos(lista) {
+  const series = new Map();
+  const avulsos = [];
+  for (const s of lista) {
+    if (s.status === 'PENDENTE' && s.recorrencia) {
+      if (!series.has(s.recorrencia.id)) series.set(s.recorrencia.id, []);
+      series.get(s.recorrencia.id).push(s);
+    } else {
+      avulsos.push(s);
+    }
+  }
+  const blocos = [
+    ...[...series.values()].map((itens) => ({ tipo: 'serie', itens })),
+    ...agruparDisputas(avulsos).map((itens) => ({ tipo: itens.length > 1 ? 'disputa' : 'item', itens })),
+  ];
+  const inicio = (bloco) => Math.min(...bloco.itens.map((s) => dayjs(s.dataInicio).valueOf()));
+  return blocos.sort((a, b) => inicio(a) - inicio(b));
 }
 
 function Approvals() {
@@ -83,6 +106,39 @@ function Approvals() {
       carregar(status);
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao processar solicitação.');
+    } finally {
+      setProcessando(null);
+    }
+  };
+
+  const decidirSerie = async (recorrenciaId, acao) => {
+    setProcessando(recorrenciaId);
+    try {
+      if (acao === 'aprovar') {
+        const { aprovadas, falhas, semVaga: semVagaDaSerie } = await aprovarSerie(recorrenciaId);
+        message.success(`${aprovadas} data(s) da série aprovada(s).`);
+        if (falhas.length > 0) {
+          Modal.warning({
+            title: `${falhas.length} data(s) não puderam ser aprovadas`,
+            content: (
+              <ul className="sem-vaga-lista">
+                {falhas.map((f) => (
+                  <li key={f.data}>
+                    {dayjs(f.data).format('DD/MM/YYYY')}: {f.motivo}
+                  </li>
+                ))}
+              </ul>
+            ),
+          });
+        }
+        setSemVaga(semVagaDaSerie);
+      } else {
+        const { recusadas } = await recusarSerie(recorrenciaId, motivoRecusa.trim() || undefined);
+        message.success(`${recusadas} data(s) da série recusada(s).`);
+      }
+      carregar(status);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao processar a série.');
     } finally {
       setProcessando(null);
     }
@@ -291,21 +347,74 @@ function Approvals() {
         </div>
       ) : (
         <div className="request-list">
-          {agruparDisputas(solicitacoes).map((bloco) =>
-            bloco.length > 1 ? (
-              <section className="disputa" key={bloco[0].id}>
-                <header className="disputa-header">
-                  <strong>{bloco.length} pedidos disputam o mesmo horário</strong>
-                  <span>
-                    Em ordem de chegada. Aprovar um deixa os outros sem vaga; a escolha é sua.
-                  </span>
+          {montarBlocos(solicitacoes).map(({ tipo, itens }) => {
+            if (tipo === 'item') return renderItem(itens[0]);
+            if (tipo === 'disputa') {
+              return (
+                <section className="disputa" key={itens[0].id}>
+                  <header className="disputa-header">
+                    <strong>{itens.length} pedidos disputam o mesmo horário</strong>
+                    <span>
+                      Em ordem de chegada. Aprovar um deixa os outros sem vaga; a escolha é sua.
+                    </span>
+                  </header>
+                  {itens.map(renderItem)}
+                </section>
+              );
+            }
+            const [primeiro] = itens;
+            const serie = primeiro.recorrencia;
+            const horario = `${serie.horaInicio}–${serie.horaFim}`;
+            return (
+              <section className="serie-bloco" key={serie.id}>
+                <header className="serie-bloco-header">
+                  <div>
+                    <strong>
+                      Série semanal de {primeiro.usuario.nome} · {primeiro.recurso.nome}
+                    </strong>
+                    <span>
+                      {descreverSerie(serie)} ·{' '}
+                      {primeiro.turno ? `${primeiro.turno.nome} (${horario})` : horario} ·{' '}
+                      {itens.length} data(s) pendente(s)
+                    </span>
+                  </div>
+                  <div className="request-actions">
+                    <Popconfirm
+                      title="Recusar todas as datas pendentes?"
+                      description={
+                        <Input.TextArea
+                          rows={2}
+                          value={motivoRecusa}
+                          onChange={(e) => setMotivoRecusa(e.target.value)}
+                          placeholder="Motivo (opcional, enviado ao professor)"
+                          style={{ width: 280, marginTop: 4 }}
+                        />
+                      }
+                      okText="Recusar série"
+                      cancelText="Voltar"
+                      okButtonProps={{ danger: true }}
+                      onOpenChange={(aberto) => aberto && setMotivoRecusa('')}
+                      onConfirm={() => decidirSerie(serie.id, 'recusar')}
+                    >
+                      <Button danger icon={<CloseOutlined />} disabled={processando === serie.id}>
+                        Recusar série
+                      </Button>
+                    </Popconfirm>
+                    <Button
+                      type="primary"
+                      icon={<CheckOutlined />}
+                      className="page-primary-button"
+                      loading={processando === serie.id}
+                      onClick={() => decidirSerie(serie.id, 'aprovar')}
+                    >
+                      Aprovar série
+                    </Button>
+                  </div>
                 </header>
-                {bloco.map(renderItem)}
+                {itens.map(renderItem)}
               </section>
-            ) : (
-              renderItem(bloco[0])
-            )
-          )}
+            );
+          })}
         </div>
       )}
 
