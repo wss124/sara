@@ -1,5 +1,6 @@
 import type { Email } from '../lib/email';
 import { formatarHora, formatarPeriodo } from '../lib/fuso';
+import { descreverDias } from '../lib/recorrencia';
 
 // Dados de uma reserva usados nos e-mails (mesmo formato de incluirDetalhes)
 export interface ReservaEmail {
@@ -53,12 +54,45 @@ function linhasDaReserva(r: ReservaEmail, comRetirada = false) {
   return linhas;
 }
 
+// Dados de uma série semanal usados nos e-mails
+export interface SerieEmail {
+  horaInicio: string;
+  horaFim: string;
+  diasSemana: number[];
+  dataInicio: string;
+  dataFim: string;
+  observacao: string | null;
+  usuario: { nome: string; email: string };
+  recurso: { nome: string; localizacao: string | null };
+  turno?: { nome: string } | null;
+}
+
+// "2026-10-20" -> "20/10/2026"
+function dataCurta(dia: string) {
+  const [ano, mes, d] = dia.split('-');
+  return `${d}/${mes}/${ano}`;
+}
+
+function linhasDaSerie(s: SerieEmail, comRetirada = false) {
+  const horario = `${s.horaInicio}–${s.horaFim}`;
+  const linhas: [string, string][] = [
+    ['Recurso', s.recurso.nome],
+    ['Quando', `${descreverDias(s.diasSemana)}, ${s.turno ? `${s.turno.nome} (${horario})` : horario}`],
+    ['Período', `${dataCurta(s.dataInicio)} a ${dataCurta(s.dataFim)}`],
+  ];
+  if (comRetirada && s.recurso.localizacao) linhas.push(['Retirar em', s.recurso.localizacao]);
+  if (s.observacao) linhas.push(['Observação', s.observacao]);
+  return linhas;
+}
+
 interface Conteudo {
   para: string | string[];
   assunto: string;
   titulo: string;
   paragrafos: string[];
   reserva?: ReservaEmail;
+  // Linhas do resumo quando o e-mail não é sobre uma reserva só
+  linhas?: [string, string][];
   comRetirada?: boolean;
   destaque?: string;
   link?: { texto: string; caminho: string };
@@ -67,7 +101,7 @@ interface Conteudo {
 // Monta o e-mail nas versões HTML (layout simples, compatível com clientes de
 // e-mail) e texto puro, a partir do mesmo conteúdo
 function montar(c: Conteudo): Email {
-  const linhas = c.reserva ? linhasDaReserva(c.reserva, c.comRetirada) : [];
+  const linhas = c.linhas ?? (c.reserva ? linhasDaReserva(c.reserva, c.comRetirada) : []);
   const link = c.link ? urlDoSistema(c.link.caminho) : urlDoSistema();
 
   const tabela = linhas.length
@@ -289,5 +323,82 @@ export function resumoDiarioParaAdmins(resumo: ResumoDiario, admins: string[]): 
       `Pedidos aguardando aprovação: ${resumo.pendentes}.`,
     ],
     link: { texto: 'Abrir Retiradas e devoluções', caminho: '/handovers' },
+  });
+}
+
+// ---------- Séries semanais ----------
+
+export interface DataRecusada {
+  data: string;
+  motivo: string;
+}
+
+function listaDeDatas(titulo: string, datas: DataRecusada[]) {
+  return datas.length ? [titulo, ...datas.map((d) => `${dataCurta(d.data)}: ${d.motivo}`)] : [];
+}
+
+export function serieRecebida(s: SerieEmail, quantidade: number, puladas: DataRecusada[]): Email {
+  return montar({
+    para: s.usuario.email,
+    assunto: `Pedido de série recebido: ${s.recurso.nome}`,
+    titulo: 'Recebemos seu pedido semanal',
+    paragrafos: [
+      `Olá, ${primeiroNome(s.usuario.nome)}! ${quantidade} data(s) foram registradas e aguardam a análise do administrador.`,
+      ...listaDeDatas('Datas que ficaram de fora:', puladas),
+    ],
+    linhas: linhasDaSerie(s),
+    link: { texto: 'Ver minhas solicitações', caminho: '/requests' },
+  });
+}
+
+export function novaSerieParaAdmins(s: SerieEmail, quantidade: number, admins: string[]): Email {
+  return montar({
+    para: admins,
+    assunto: `Nova série para aprovar: ${s.recurso.nome}`,
+    titulo: 'Novo pedido semanal aguardando aprovação',
+    paragrafos: [`${s.usuario.nome} solicitou o recurso em ${quantidade} data(s).`],
+    linhas: linhasDaSerie(s),
+    link: { texto: 'Abrir Aprovações', caminho: '/approvals' },
+  });
+}
+
+export function serieAprovada(s: SerieEmail, aprovadas: number, falhas: DataRecusada[]): Email {
+  return montar({
+    para: s.usuario.email,
+    assunto: `Série aprovada: ${s.recurso.nome}`,
+    titulo: falhas.length ? 'Sua série foi aprovada em parte' : 'Sua série foi aprovada',
+    paragrafos: [
+      `Olá, ${primeiroNome(s.usuario.nome)}! ${aprovadas} data(s) estão reservadas para você. Retire no local indicado e devolva ao fim de cada uso.`,
+      ...listaDeDatas('Datas que não puderam ser aprovadas:', falhas),
+    ],
+    linhas: linhasDaSerie(s, true),
+    link: { texto: 'Ver minhas solicitações', caminho: '/requests' },
+  });
+}
+
+export function serieRecusada(s: SerieEmail, quantidade: number, motivo: string | null): Email {
+  return montar({
+    para: s.usuario.email,
+    assunto: `Série recusada: ${s.recurso.nome}`,
+    titulo: 'Seu pedido semanal foi recusado',
+    paragrafos: [
+      `Olá, ${primeiroNome(s.usuario.nome)}. ${quantidade} data(s) pendentes do pedido abaixo não puderam ser atendidas.`,
+    ],
+    ...(motivo ? { destaque: `Motivo: ${motivo}` } : {}),
+    linhas: linhasDaSerie(s),
+    link: { texto: 'Fazer outro pedido', caminho: '/requests' },
+  });
+}
+
+export function serieCanceladaParaAdmins(s: SerieEmail, canceladas: number, admins: string[]): Email {
+  return montar({
+    para: admins,
+    assunto: `Série cancelada pelo professor: ${s.recurso.nome}`,
+    titulo: 'Uma série de reservas foi cancelada',
+    paragrafos: [
+      `${s.usuario.nome} cancelou a série abaixo. ${canceladas} reserva(s) aprovada(s) voltaram a ficar livres.`,
+    ],
+    linhas: linhasDaSerie(s),
+    link: { texto: 'Abrir Aprovações', caminho: '/approvals' },
   });
 }

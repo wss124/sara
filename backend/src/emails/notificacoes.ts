@@ -3,7 +3,7 @@
 import { prisma } from '../lib/prisma';
 import { enviarEmSegundoPlano, type Email } from '../lib/email';
 import * as templates from './templates';
-import type { ReservaEmail } from './templates';
+import type { ReservaEmail, SerieEmail, DataRecusada } from './templates';
 
 async function emailsDosAdmins() {
   const admins = await prisma.usuario.findMany({ where: { perfil: 'ADMIN' }, select: { email: true } });
@@ -65,4 +65,24 @@ export function resumoDiario(resumo: templates.ResumoDiario) {
 
 export function recursoForaDeUso(reservas: ReservaEmail[], estado: 'EM_MANUTENCAO' | 'INDISPONIVEL') {
   for (const r of reservas) paraProfessor(r, () => templates.recursoForaDeUso(r, estado));
+}
+
+// Séries semanais: um e-mail por evento da série, nunca um por data
+export function serieCriada(s: SerieEmail, quantidade: number, puladas: DataRecusada[]) {
+  enviarEmSegundoPlano(templates.serieRecebida(s, quantidade, puladas));
+  paraAdmins((admins) => templates.novaSerieParaAdmins(s, quantidade, admins));
+}
+
+export function serieAprovada(s: SerieEmail, aprovadas: number, falhas: DataRecusada[]) {
+  if (aprovadas > 0 || falhas.length > 0) {
+    enviarEmSegundoPlano(templates.serieAprovada(s, aprovadas, falhas));
+  }
+}
+
+export function serieRecusada(s: SerieEmail, quantidade: number, motivo: string | null) {
+  if (quantidade > 0) enviarEmSegundoPlano(templates.serieRecusada(s, quantidade, motivo));
+}
+
+export function serieCanceladaPeloProfessor(s: SerieEmail, canceladas: number) {
+  if (canceladas > 0) paraAdmins((admins) => templates.serieCanceladaParaAdmins(s, canceladas, admins));
 }

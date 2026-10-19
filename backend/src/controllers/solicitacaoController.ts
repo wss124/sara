@@ -30,7 +30,7 @@ function listaDeIds(valor: unknown): string[] | undefined {
 
 type ReqComId = Request<{ id: string }>;
 
-const incluirDetalhes = {
+export const incluirDetalhes = {
   recurso: { select: { id: true, nome: true, tipo: true, localizacao: true } },
   usuario: { select: { id: true, nome: true, email: true, perfil: true } },
   aprovadoPor: { select: { id: true, nome: true } },
@@ -41,6 +41,9 @@ const incluirDetalhes = {
     include: { acessorio: { select: { id: true, nome: true, localizacao: true } } },
   },
   turno: { select: { id: true, nome: true } },
+  recorrencia: {
+    select: { id: true, diasSemana: true, dataInicio: true, dataFim: true, horaInicio: true, horaFim: true },
+  },
 } as const;
 
 function mensagemEmFalta(nomes: string[]) {
@@ -102,7 +105,7 @@ type ResultadoValidacao =
   | { ok: true; inicio: Date; fim: Date; itens: ItemPedido[] }
   | { ok: false; status: number; error: string };
 
-async function validarPedido(
+export async function validarPedido(
   recursoId: unknown,
   inicio: Date | null,
   fim: Date | null,
@@ -516,44 +519,45 @@ export async function pendentesNoPeriodo(req: Request, res: Response) {
   }
 }
 
-export async function aprovar(req: ReqComId, res: Response) {
-  const { id } = req.params;
+const MENSAGEM_JA_APROVADA = 'Já existe uma reserva aprovada nesse horário. Recuse esta solicitação.';
+
+// Aprova um pedido pendente. Lança ErroNegocio quando não é possível (recurso
+// bloqueado, horário ou acessórios já comprometidos). Usada na aprovação
+// individual e na aprovação de uma série inteira.
+export async function aprovarPedido(id: string, adminId: string) {
+  const solicitacao = await prisma.solicitacao.findUnique({
+    where: { id },
+    include: { recurso: { select: { estado: true } }, acessorios: true },
+  });
+
+  if (!solicitacao) {
+    throw new ErroNegocio(404, 'Solicitação não encontrada.');
+  }
+  if (solicitacao.status !== 'PENDENTE') {
+    throw new ErroNegocio(409, 'Apenas solicitações pendentes podem ser aprovadas.');
+  }
+  const bloqueio = MOTIVO_BLOQUEIO[solicitacao.recurso.estado];
+  if (bloqueio) {
+    throw new ErroNegocio(409, bloqueio);
+  }
+
+  // Outra solicitação pode ter sido aprovada para o mesmo horário depois desta
+  // ser criada. A checagem dá uma mensagem clara; a constraint do banco cobre
+  // o caso de duas aprovações simultâneas, que passariam ambas por aqui.
+  const conflito = await buscarConflito(
+    solicitacao.recursoId,
+    solicitacao.dataInicio,
+    solicitacao.dataFim,
+    solicitacao.id
+  );
+  if (conflito) {
+    throw new ErroNegocio(409, MENSAGEM_JA_APROVADA);
+  }
 
   try {
-    const solicitacao = await prisma.solicitacao.findUnique({
-      where: { id },
-      include: { recurso: { select: { estado: true } }, acessorios: true },
-    });
-
-    if (!solicitacao) {
-      return res.status(404).json({ error: 'Solicitação não encontrada.' });
-    }
-    if (solicitacao.status !== 'PENDENTE') {
-      return res.status(409).json({ error: 'Apenas solicitações pendentes podem ser aprovadas.' });
-    }
-    const bloqueio = MOTIVO_BLOQUEIO[solicitacao.recurso.estado];
-    if (bloqueio) {
-      return res.status(409).json({ error: bloqueio });
-    }
-
-    // Outra solicitação pode ter sido aprovada para o mesmo horário depois desta
-    // ser criada. A checagem dá uma mensagem clara; a constraint do banco cobre
-    // o caso de duas aprovações simultâneas, que passariam ambas por aqui.
-    const conflito = await buscarConflito(
-      solicitacao.recursoId,
-      solicitacao.dataInicio,
-      solicitacao.dataFim,
-      solicitacao.id
-    );
-    if (conflito) {
-      return res.status(409).json({
-        error: 'Já existe uma reserva aprovada nesse horário. Recuse esta solicitação.',
-      });
-    }
-
     // Os acessórios podem ter sido comprometidos com outra reserva aprovada
     // depois que este pedido foi feito
-    const atualizada = await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       await garantirAcessorios(
         tx,
         solicitacao.acessorios,
@@ -563,34 +567,41 @@ export async function aprovar(req: ReqComId, res: Response) {
       );
       return tx.solicitacao.update({
         where: { id },
-        data: { status: 'APROVADA', aprovadoPorId: req.usuario!.id },
+        data: { status: 'APROVADA', aprovadoPorId: adminId },
         include: incluirDetalhes,
       });
     });
+  } catch (error) {
+    if (violouSobreposicao(error)) throw new ErroNegocio(409, MENSAGEM_JA_APROVADA);
+    throw error;
+  }
+}
 
-    // Pedidos que disputavam o horário agora não têm mais vaga. A decisão de
-    // recusá-los fica com o admin; a resposta os lista para ele decidir.
-    const semVaga = await prisma.solicitacao.findMany({
-      where: {
-        recursoId: atualizada.recursoId,
-        status: 'PENDENTE',
-        dataInicio: { lt: atualizada.dataFim },
-        dataFim: { gt: atualizada.dataInicio },
-      },
-      include: incluirDetalhes,
-      orderBy: { criadoEm: 'asc' },
-    });
+// Pedidos pendentes que disputavam o horário de uma reserva recém-aprovada e
+// agora não têm mais vaga. A decisão de recusá-los fica com o admin.
+export function buscarSemVaga(reserva: { recursoId: string; dataInicio: Date; dataFim: Date }) {
+  return prisma.solicitacao.findMany({
+    where: {
+      recursoId: reserva.recursoId,
+      status: 'PENDENTE',
+      dataInicio: { lt: reserva.dataFim },
+      dataFim: { gt: reserva.dataInicio },
+    },
+    include: incluirDetalhes,
+    orderBy: { criadoEm: 'asc' },
+  });
+}
+
+export async function aprovar(req: ReqComId, res: Response) {
+  try {
+    const atualizada = await aprovarPedido(req.params.id, req.usuario!.id);
+    const semVaga = await buscarSemVaga(atualizada);
 
     notificar.pedidoAprovado(atualizada);
     return res.json({ ...atualizada, semVaga });
   } catch (error) {
     if (error instanceof ErroNegocio) {
       return res.status(error.status).json({ error: error.message });
-    }
-    if (violouSobreposicao(error)) {
-      return res.status(409).json({
-        error: 'Já existe uma reserva aprovada nesse horário. Recuse esta solicitação.',
-      });
     }
     console.error(error);
     return res.status(500).json({ error: 'Erro ao aprovar solicitação.' });

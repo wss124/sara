@@ -196,14 +196,14 @@ export async function remover(req: ReqComId, res: Response) {
   try {
     const recurso = await prisma.recurso.findUnique({
       where: { id },
-      include: { _count: { select: { solicitacoes: true } } },
+      include: { _count: { select: { solicitacoes: true, recorrencias: true } } },
     });
 
     if (!recurso) {
       return res.status(404).json({ error: 'Recurso não encontrado.' });
     }
 
-    if (recurso._count.solicitacoes > 0) {
+    if (recurso._count.solicitacoes > 0 || recurso._count.recorrencias > 0) {
       return res.status(409).json({
         error: 'Este recurso possui solicitações registradas. Desative-o em vez de excluir.',
       });

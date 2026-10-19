@@ -58,6 +58,7 @@ model Usuario {
   reservasLancadas      Solicitacao[] @relation("LancamentosDoAdmin")
   retiradasRegistradas  Solicitacao[] @relation("RetiradasRegistradas")
   devolucoesRegistradas Solicitacao[] @relation("DevolucoesRegistradas")
+  recorrencias          Recorrencia[]
 }
 
 model Recurso {
@@ -74,6 +75,7 @@ model Recurso {
 
   solicitacoes Solicitacao[]
   acessorios   RecursoAcessorio[]
+  recorrencias Recorrencia[]
 }
 
 // Turno de aula do campus. Horários no formato "HH:MM", no fuso do campus.
@@ -84,6 +86,33 @@ model Turno {
   horaFim    String
   ordem      Int     @default(0)
   ativo      Boolean @default(true)
+
+  solicitacoes Solicitacao[]
+  recorrencias Recorrencia[]
+}
+
+// Série de reservas semanais (ex.: toda terça à tarde até o fim do semestre).
+// Cada data vira uma Solicitacao ligada à série, que pode ser aprovada,
+// recusada ou cancelada sozinha ou junto com as outras.
+model Recorrencia {
+  id         String   @id @default(cuid())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  String
+  recurso    Recurso  @relation(fields: [recursoId], references: [id])
+  recursoId  String
+  turno      Turno?   @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  turnoId    String?
+  // Horário de cada ocorrência ("HH:MM", fuso do campus), copiado do turno
+  // na criação quando a série é por turno
+  horaInicio String
+  horaFim    String
+  // 0 = domingo ... 6 = sábado
+  diasSemana Int[]
+  // Primeiro e último dia da série ("AAAA-MM-DD", inclusivos)
+  dataInicio String
+  dataFim    String
+  observacao String?
+  criadoEm   DateTime @default(now())
 
   solicitacoes Solicitacao[]
 }
@@ -153,6 +182,10 @@ model Solicitacao {
   // dataInicio/dataFim e não muda se o turno for editado depois)
   turno         Turno?            @relation(fields: [turnoId], references: [id], onDelete: SetNull)
   turnoId       String?
+
+  // Série semanal da qual o pedido faz parte
+  recorrencia   Recorrencia?      @relation(fields: [recorrenciaId], references: [id], onDelete: SetNull)
+  recorrenciaId String?
 
   // Reserva registrada diretamente pelo admin (pedido por telefone, balcão
   // ou uso da própria instituição). No uso institucional, usuario é o admin
