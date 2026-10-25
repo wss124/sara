@@ -30,6 +30,15 @@ export function autenticar(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+// EventSource não envia cabeçalhos: o token vem em ?token= na URL
+export function autenticarPorQuery(req: Request, res: Response, next: NextFunction) {
+  const token = req.query.token;
+  if (typeof token === 'string' && !req.headers.authorization) {
+    req.headers.authorization = `Bearer ${token}`;
+  }
+  return autenticar(req, res, next);
+}
+
 export function somenteAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.usuario?.perfil !== 'ADMIN') {
     return res.status(403).json({ error: 'Acesso restrito a administradores.' });
