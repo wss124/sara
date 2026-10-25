@@ -117,6 +117,16 @@ model Recorrencia {
   solicitacoes Solicitacao[]
 }
 
+// Regras gerais do sistema editadas pelo admin. Há uma única linha
+// (id "padrao"); sem ela valem os padrões de lib/configuracao.ts.
+model Configuracao {
+  id                   String @id @default("padrao")
+  // Pedidos do professor: pelo menos X horas antes do início...
+  antecedenciaMinHoras Int
+  // ...e no máximo Y dias antes
+  antecedenciaMaxDias  Int
+}
+
 // Execuções de rotinas que devem acontecer uma vez só (ex.: resumo diário
 // "resumo-diario-2026-10-14"); a chave primária garante a unicidade
 model RotinaExecucao {
