@@ -171,6 +171,41 @@
 .home-refresh:hover {
   color: #2b5797;
 }
+.home-refresh-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+/* Indicador da conexão em tempo real */
+.home-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #888;
+}
+.home-live i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #bbb;
+}
+.home-live.is-on {
+  color: #237804;
+}
+.home-live.is-on i {
+  background: #52c41a;
+  animation: home-live-pulso 2s ease-in-out infinite;
+}
+@keyframes home-live-pulso {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(82, 196, 26, 0);
+  }
+}
 
 /* ---------- Painéis (ocupação e agenda) ---------- */
 .home-panel {
