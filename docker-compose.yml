@@ -12,5 +12,15 @@ services:
     volumes:
       - sara_pg_data:/var/lib/postgresql/data
 
+  # Servidor de e-mail de desenvolvimento: captura tudo o que o SARA envia.
+  # Caixa de entrada em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: sara_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   sara_pg_data:

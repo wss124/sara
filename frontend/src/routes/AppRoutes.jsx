@@ -7,9 +7,13 @@ import Resources from '../pages/Resources/Resources';
 import Requests from '../pages/Requests/Requests';
 import Approvals from '../pages/Approvals/Approvals';
 import Users from '../pages/Users/Users';
+import Handovers from '../pages/Handovers/Handovers';
+import Accessories from '../pages/Accessories/Accessories';
+import Shifts from '../pages/Shifts/Shifts';
 import UserLayout from '../layouts/UserLayout/UserLayout';
 import PrivateRoute from './PrivateRoute';
 import AdminRoute from './AdminRoute';
+import UserRoute from './UserRoute';
 
 function AppRoutes() {
   return (
@@ -28,12 +32,43 @@ function AppRoutes() {
         >
           <Route path="/home" element={<Home />} />
           <Route path="/resources" element={<Resources />} />
-          <Route path="/requests" element={<Requests />} />
+          <Route
+            path="/requests"
+            element={
+              <UserRoute>
+                <Requests />
+              </UserRoute>
+            }
+          />
           <Route
             path="/approvals"
             element={
               <AdminRoute>
                 <Approvals />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/shifts"
+            element={
+              <AdminRoute>
+                <Shifts />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/accessories"
+            element={
+              <AdminRoute>
+                <Accessories />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/handovers"
+            element={
+              <AdminRoute>
+                <Handovers />
               </AdminRoute>
             }
           />

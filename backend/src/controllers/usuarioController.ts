@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 
 type ReqComId = Request<{ id: string }>;
 
-const PERFIS_VALIDOS = ['ALUNO', 'PROFESSOR', 'ADMIN'];
+const PERFIS_VALIDOS = ['PROFESSOR', 'ADMIN'];
 
 const camposPublicos = {
   id: true,
@@ -23,7 +23,7 @@ export async function listar(req: Request, res: Response) {
 
   try {
     const usuarios = await prisma.usuario.findMany({
-      where: perfil ? { perfil: perfil as 'ALUNO' | 'PROFESSOR' | 'ADMIN' } : {},
+      where: perfil ? { perfil: perfil as 'PROFESSOR' | 'ADMIN' } : {},
       select: camposPublicos,
       orderBy: { nome: 'asc' },
     });
@@ -42,7 +42,7 @@ export async function alterarPerfil(req: ReqComId, res: Response) {
   const { perfil } = req.body;
 
   if (!PERFIS_VALIDOS.includes(String(perfil))) {
-    return res.status(400).json({ error: 'Informe um perfil válido: ALUNO, PROFESSOR ou ADMIN.' });
+    return res.status(400).json({ error: 'Informe um perfil válido: PROFESSOR ou ADMIN.' });
   }
 
   // Impede que o admin tire o próprio acesso e deixe o sistema sem administrador
@@ -59,7 +59,7 @@ export async function alterarPerfil(req: ReqComId, res: Response) {
 
     const atualizado = await prisma.usuario.update({
       where: { id },
-      data: { perfil: perfil as 'ALUNO' | 'PROFESSOR' | 'ADMIN' },
+      data: { perfil: perfil as 'PROFESSOR' | 'ADMIN' },
       select: camposPublicos,
     });
 

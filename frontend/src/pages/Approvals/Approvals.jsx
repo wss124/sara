@@ -1,22 +1,84 @@
 import { useEffect, useState } from 'react';
-import { Button, Segmented, Popconfirm, Empty, Spin, message } from 'antd';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
+import { Button, Segmented, Popconfirm, Empty, Spin, Input, Modal, message } from 'antd';
+import dayjs from 'dayjs';
+import { CheckOutlined, CloseOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
   listarSolicitacoes,
   aprovarSolicitacao,
   recusarSolicitacao,
+  cancelarReserva,
 } from '../../services/solicitacaoService';
-import { formatarPeriodo } from '../../utils/format';
+import RequestModal from '../Requests/RequestModal';
+import SemVagaModal from './SemVagaModal';
+import { periodoDaSolicitacao, descreverAcessorios, descreverSerie } from '../../utils/format';
+import { aprovarSerie, recusarSerie } from '../../services/recorrenciaService';
 import { STATUS, ICONES_TIPO } from '../Requests/constants';
 import '../Requests/Requests.css';
 
-const PERFIS = { ALUNO: 'Aluno', PROFESSOR: 'Professor', ADMIN: 'Administrador' };
+const PERFIS = { PROFESSOR: 'Professor', ADMIN: 'Administrador' };
+
+const quando = (data) => dayjs(data).format('DD/MM [às] HH:mm');
+
+// Junta os pedidos pendentes que disputam o mesmo horário (direta ou
+// indiretamente) num bloco, em ordem de chegada. Os demais ficam sozinhos.
+// A ordem dos blocos segue a da lista recebida.
+function agruparDisputas(lista) {
+  const porId = new Map(lista.map((s) => [s.id, s]));
+  const grupoDe = new Map();
+  const blocos = [];
+  for (const s of lista) {
+    if (grupoDe.has(s.id)) continue;
+    const bloco = [];
+    const pendentes = [s];
+    grupoDe.set(s.id, bloco);
+    while (pendentes.length > 0) {
+      const atual = pendentes.pop();
+      bloco.push(atual);
+      for (const c of atual.fila?.concorrentes ?? []) {
+        const outro = porId.get(c.id);
+        if (outro && !grupoDe.has(outro.id)) {
+          grupoDe.set(outro.id, bloco);
+          pendentes.push(outro);
+        }
+      }
+    }
+    bloco.sort((a, b) => dayjs(a.criadoEm) - dayjs(b.criadoEm));
+    blocos.push(bloco);
+  }
+  return blocos;
+}
+
+// Blocos da lista: datas pendentes de uma mesma série semanal ficam juntas
+// (para aprovar ou recusar em lote); os demais pedidos são agrupados por
+// disputa de horário. Os blocos seguem a ordem da primeira data de cada um.
+function montarBlocos(lista) {
+  const series = new Map();
+  const avulsos = [];
+  for (const s of lista) {
+    if (s.status === 'PENDENTE' && s.recorrencia) {
+      if (!series.has(s.recorrencia.id)) series.set(s.recorrencia.id, []);
+      series.get(s.recorrencia.id).push(s);
+    } else {
+      avulsos.push(s);
+    }
+  }
+  const blocos = [
+    ...[...series.values()].map((itens) => ({ tipo: 'serie', itens })),
+    ...agruparDisputas(avulsos).map((itens) => ({ tipo: itens.length > 1 ? 'disputa' : 'item', itens })),
+  ];
+  const inicio = (bloco) => Math.min(...bloco.itens.map((s) => dayjs(s.dataInicio).valueOf()));
+  return blocos.sort((a, b) => inicio(a) - inicio(b));
+}
 
 function Approvals() {
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('PENDENTE');
   const [processando, setProcessando] = useState(null);
+  const [modalAberto, setModalAberto] = useState(false);
+  const [motivoRecusa, setMotivoRecusa] = useState('');
+  // Pedidos que perderam a vaga na última aprovação
+  const [semVaga, setSemVaga] = useState([]);
 
   const carregar = (filtro) =>
     listarSolicitacoes(filtro === 'TODAS' ? undefined : filtro)
@@ -34,10 +96,11 @@ function Approvals() {
     setProcessando(id);
     try {
       if (acao === 'aprovar') {
-        await aprovarSolicitacao(id);
+        const aprovada = await aprovarSolicitacao(id);
         message.success('Solicitação aprovada.');
+        setSemVaga(aprovada.semVaga ?? []);
       } else {
-        await recusarSolicitacao(id);
+        await recusarSolicitacao(id, motivoRecusa.trim() || undefined);
         message.success('Solicitação recusada.');
       }
       carregar(status);
@@ -48,13 +111,205 @@ function Approvals() {
     }
   };
 
+  const decidirSerie = async (recorrenciaId, acao) => {
+    setProcessando(recorrenciaId);
+    try {
+      if (acao === 'aprovar') {
+        const { aprovadas, falhas, semVaga: semVagaDaSerie } = await aprovarSerie(recorrenciaId);
+        message.success(`${aprovadas} data(s) da série aprovada(s).`);
+        if (falhas.length > 0) {
+          Modal.warning({
+            title: `${falhas.length} data(s) não puderam ser aprovadas`,
+            content: (
+              <ul className="sem-vaga-lista">
+                {falhas.map((f) => (
+                  <li key={f.data}>
+                    {dayjs(f.data).format('DD/MM/YYYY')}: {f.motivo}
+                  </li>
+                ))}
+              </ul>
+            ),
+          });
+        }
+        setSemVaga(semVagaDaSerie);
+      } else {
+        const { recusadas } = await recusarSerie(recorrenciaId, motivoRecusa.trim() || undefined);
+        message.success(`${recusadas} data(s) da série recusada(s).`);
+      }
+      carregar(status);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao processar a série.');
+    } finally {
+      setProcessando(null);
+    }
+  };
+
+  const desfazerReserva = async (id) => {
+    setProcessando(id);
+    try {
+      await cancelarReserva(id);
+      message.success('Reserva cancelada.');
+      carregar(status);
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao cancelar reserva.');
+    } finally {
+      setProcessando(null);
+    }
+  };
+
+  // Quem pediu ou, nas reservas lançadas pelo admin, para quem foi registrada
+  const descreverOrigem = (s) => {
+    if (s.institucional) return `Uso institucional · registrado por ${s.lancadoPor?.nome}`;
+    const usuario = `${s.usuario.nome} (${PERFIS[s.usuario.perfil]}) · ${s.usuario.email}`;
+    return s.lancadoPor
+      ? `Reservado para ${usuario} · registrado por ${s.lancadoPor.nome}`
+      : `Solicitado por ${usuario}`;
+  };
+
+  // Um pedido da lista, com as ações conforme o status
+  function renderItem(s) {
+    return (
+      <div className="request-item" key={s.id}>
+        <div className="request-icon">{ICONES_TIPO[s.recurso.tipo]}</div>
+
+        <div className="request-info">
+          <h3>{s.recurso.nome}</h3>
+          <span className="request-period">{periodoDaSolicitacao(s)}</span>
+          <span className="request-meta">{descreverOrigem(s)}</span>
+          {s.fila && (
+            <span className="request-fila">
+              {s.fila.posicao}º na fila de {s.fila.total} · pedido em {quando(s.criadoEm)}
+            </span>
+          )}
+          {s.acessorios?.length > 0 && (
+            <span className="request-acessorios">
+              Acompanha: {descreverAcessorios(s.acessorios, Boolean(s.retiradoEm))}
+            </span>
+          )}
+          {s.observacao && <p>{s.observacao}</p>}
+          {s.motivoRecusa && <span className="request-meta">Motivo da recusa: {s.motivoRecusa}</span>}
+          {s.motivoCancelamento && (
+            <span className="request-meta">Motivo do cancelamento: {s.motivoCancelamento}</span>
+          )}
+          {s.aprovadoPor && s.status !== 'PENDENTE' && !s.lancadoPor && (
+            <span className="request-meta">
+              {s.status === 'APROVADA' ? 'Aprovada' : 'Recusada'} por {s.aprovadoPor.nome}
+            </span>
+          )}
+        </div>
+
+        <div className="request-side">
+          {s.status === 'PENDENTE' ? (
+            <div className="request-actions">
+              <Popconfirm
+                title="Recusar solicitação?"
+                description={
+                  <Input.TextArea
+                    rows={2}
+                    value={motivoRecusa}
+                    onChange={(e) => setMotivoRecusa(e.target.value)}
+                    placeholder="Motivo (opcional, enviado ao professor)"
+                    style={{ width: 280, marginTop: 4 }}
+                  />
+                }
+                okText="Recusar"
+                cancelText="Voltar"
+                okButtonProps={{ danger: true }}
+                onOpenChange={(aberto) => aberto && setMotivoRecusa('')}
+                onConfirm={() => decidir(s.id, 'recusar')}
+              >
+                <Button danger icon={<CloseOutlined />} disabled={processando === s.id}>
+                  Recusar
+                </Button>
+              </Popconfirm>
+              {s.fila?.posicao > 1 ? (
+                // Aprovar fora da ordem de chegada é permitido, mas pede confirmação
+                <Popconfirm
+                  title="Há pedidos anteriores para este horário"
+                  description={
+                    <ul className="sem-vaga-lista">
+                      {s.fila.concorrentes
+                        .filter((c) => dayjs(c.criadoEm).isBefore(s.criadoEm))
+                        .map((c) => (
+                          <li key={c.id}>
+                            {c.usuario.nome}, pedido em {quando(c.criadoEm)}
+                          </li>
+                        ))}
+                    </ul>
+                  }
+                  okText="Aprovar este mesmo assim"
+                  cancelText="Voltar"
+                  onConfirm={() => decidir(s.id, 'aprovar')}
+                >
+                  <Button
+                    type="primary"
+                    icon={<CheckOutlined />}
+                    className="page-primary-button"
+                    loading={processando === s.id}
+                  >
+                    Aprovar
+                  </Button>
+                </Popconfirm>
+              ) : (
+                <Button
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  className="page-primary-button"
+                  loading={processando === s.id}
+                  onClick={() => decidir(s.id, 'aprovar')}
+                >
+                  Aprovar
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
+              <span className={`request-status ${STATUS[s.status].className}`}>
+                {s.lancadoPor ? 'Reserva do admin' : STATUS[s.status].label}
+              </span>
+              {s.lancadoPor && s.status === 'APROVADA' && dayjs().isBefore(s.dataFim) && (
+                <Popconfirm
+                  title="Cancelar esta reserva?"
+                  description="O horário volta a ficar livre."
+                  okText="Cancelar reserva"
+                  cancelText="Voltar"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => desfazerReserva(s.id)}
+                >
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    loading={processando === s.id}
+                  >
+                    Cancelar
+                  </Button>
+                </Popconfirm>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page">
       <header className="page-header">
         <div>
           <h1>Aprovações</h1>
-          <p>Analise as solicitações de reserva enviadas pela comunidade acadêmica.</p>
+          <p>Analise as solicitações da comunidade acadêmica ou registre reservas diretamente.</p>
         </div>
+        <Button
+          type="primary"
+          size="large"
+          icon={<PlusOutlined />}
+          className="page-primary-button"
+          onClick={() => setModalAberto(true)}
+        >
+          Nova reserva
+        </Button>
       </header>
 
       <Segmented
@@ -68,7 +323,10 @@ function Approvals() {
         options={[
           { label: 'Pendentes', value: 'PENDENTE' },
           { label: 'Aprovadas', value: 'APROVADA' },
+          { label: 'Em uso', value: 'EM_ANDAMENTO' },
+          { label: 'Concluídas', value: 'CONCLUIDA' },
           { label: 'Recusadas', value: 'RECUSADA' },
+          { label: 'Canceladas', value: 'CANCELADA' },
           { label: 'Todas', value: 'TODAS' },
         ]}
       />
@@ -89,58 +347,97 @@ function Approvals() {
         </div>
       ) : (
         <div className="request-list">
-          {solicitacoes.map((s) => (
-            <div className="request-item" key={s.id}>
-              <div className="request-icon">{ICONES_TIPO[s.recurso.tipo]}</div>
-
-              <div className="request-info">
-                <h3>{s.recurso.nome}</h3>
-                <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
-                <span className="request-meta">
-                  Solicitado por {s.usuario.nome} ({PERFIS[s.usuario.perfil]}) · {s.usuario.email}
-                </span>
-                {s.observacao && <p>{s.observacao}</p>}
-                {s.aprovadoPor && s.status !== 'PENDENTE' && (
-                  <span className="request-meta">
-                    {s.status === 'APROVADA' ? 'Aprovada' : 'Recusada'} por {s.aprovadoPor.nome}
-                  </span>
-                )}
-              </div>
-
-              <div className="request-side">
-                {s.status === 'PENDENTE' ? (
+          {montarBlocos(solicitacoes).map(({ tipo, itens }) => {
+            if (tipo === 'item') return renderItem(itens[0]);
+            if (tipo === 'disputa') {
+              return (
+                <section className="disputa" key={itens[0].id}>
+                  <header className="disputa-header">
+                    <strong>{itens.length} pedidos disputam o mesmo horário</strong>
+                    <span>
+                      Em ordem de chegada. Aprovar um deixa os outros sem vaga; a escolha é sua.
+                    </span>
+                  </header>
+                  {itens.map(renderItem)}
+                </section>
+              );
+            }
+            const [primeiro] = itens;
+            const serie = primeiro.recorrencia;
+            const horario = `${serie.horaInicio}–${serie.horaFim}`;
+            return (
+              <section className="serie-bloco" key={serie.id}>
+                <header className="serie-bloco-header">
+                  <div>
+                    <strong>
+                      Série semanal de {primeiro.usuario.nome} · {primeiro.recurso.nome}
+                    </strong>
+                    <span>
+                      {descreverSerie(serie)} ·{' '}
+                      {primeiro.turno ? `${primeiro.turno.nome} (${horario})` : horario} ·{' '}
+                      {itens.length} data(s) pendente(s)
+                    </span>
+                  </div>
                   <div className="request-actions">
                     <Popconfirm
-                      title="Recusar solicitação?"
-                      okText="Recusar"
+                      title="Recusar todas as datas pendentes?"
+                      description={
+                        <Input.TextArea
+                          rows={2}
+                          value={motivoRecusa}
+                          onChange={(e) => setMotivoRecusa(e.target.value)}
+                          placeholder="Motivo (opcional, enviado ao professor)"
+                          style={{ width: 280, marginTop: 4 }}
+                        />
+                      }
+                      okText="Recusar série"
                       cancelText="Voltar"
                       okButtonProps={{ danger: true }}
-                      onConfirm={() => decidir(s.id, 'recusar')}
+                      onOpenChange={(aberto) => aberto && setMotivoRecusa('')}
+                      onConfirm={() => decidirSerie(serie.id, 'recusar')}
                     >
-                      <Button danger icon={<CloseOutlined />} disabled={processando === s.id}>
-                        Recusar
+                      <Button danger icon={<CloseOutlined />} disabled={processando === serie.id}>
+                        Recusar série
                       </Button>
                     </Popconfirm>
                     <Button
                       type="primary"
                       icon={<CheckOutlined />}
                       className="page-primary-button"
-                      loading={processando === s.id}
-                      onClick={() => decidir(s.id, 'aprovar')}
+                      loading={processando === serie.id}
+                      onClick={() => decidirSerie(serie.id, 'aprovar')}
                     >
-                      Aprovar
+                      Aprovar série
                     </Button>
                   </div>
-                ) : (
-                  <span className={`request-status ${STATUS[s.status].className}`}>
-                    {STATUS[s.status].label}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+                </header>
+                {itens.map(renderItem)}
+              </section>
+            );
+          })}
         </div>
       )}
+
+      <SemVagaModal
+        key={semVaga.map((p) => p.id).join()}
+        pedidos={semVaga}
+        onClose={(recusou) => {
+          setSemVaga([]);
+          if (recusou) carregar(status);
+        }}
+      />
+
+      <RequestModal
+        admin
+        open={modalAberto}
+        onClose={() => setModalAberto(false)}
+        onCreated={() => {
+          setModalAberto(false);
+          setLoading(true);
+          setStatus('APROVADA');
+          carregar('APROVADA');
+        }}
+      />
     </div>
   );
 }

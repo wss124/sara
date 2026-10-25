@@ -6,7 +6,7 @@ import { registerRequest } from '../../services/authService';
 import '../Login/Login.css';
 
 // Mesmos domínios aceitos pelo backend; a API valida de novo no cadastro
-const DOMINIOS = ['aluno.uespi.br', 'prp.uespi.br'];
+const DOMINIOS = ['prp.uespi.br'];
 
 function emailInstitucional(_, valor) {
   const dominio = (valor || '').trim().toLowerCase().split('@').pop();
@@ -48,8 +48,8 @@ export default function Register() {
           <div className="login-side-content">
             <h1>Crie sua conta</h1>
             <p>
-              Cadastro exclusivo para alunos e professores da UESPI. Use seu e-mail
-              institucional; professores são habilitados pelo administrador.
+              Cadastro exclusivo para professores da UESPI. Use seu e-mail
+              institucional para solicitar salas e equipamentos.
             </p>
           </div>
         </div>
@@ -79,7 +79,7 @@ export default function Register() {
                 { validator: emailInstitucional },
               ]}
             >
-              <Input prefix={<MailOutlined />} placeholder="seunome@aluno.uespi.br" size="large" />
+              <Input prefix={<MailOutlined />} placeholder="seunome@prp.uespi.br" size="large" />
             </Form.Item>
 
             <Form.Item

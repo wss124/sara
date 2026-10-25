@@ -1,29 +1,11 @@
 // Carrega o .env antes de qualquer módulo que leia process.env
 import './env';
-import express from 'express';
-import cors from 'cors';
-import { authRoutes } from './routes/authRoutes';
-import { recursoRoutes } from './routes/recursoRoutes';
-import { solicitacaoRoutes } from './routes/solicitacaoRoutes';
-import { dashboardRoutes } from './routes/dashboardRoutes';
-import { usuarioRoutes } from './routes/usuarioRoutes';
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.get('/', (req, res) => {
-  res.json({ message: 'API do SARA rodando com sucesso!' });
-});
-app.use('/auth', authRoutes);
-app.use('/recursos', recursoRoutes);
-app.use('/solicitacoes', solicitacaoRoutes);
-app.use('/dashboard', dashboardRoutes);
-app.use('/usuarios', usuarioRoutes);
+import { app } from './app';
+import { iniciarRotinas } from './rotinas';
 
 const PORT = process.env.PORT || 3333;
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
+  iniciarRotinas();
 });

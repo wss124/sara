@@ -11,7 +11,7 @@
   border-radius: 24px;
   overflow: hidden;
   color: #fff;
-  background: linear-gradient(135deg, #13305f 0%, #3d2670 100%);
+  background: linear-gradient(135deg, #0b2149 0%, #050f24 100%);
   box-shadow: 0 20px 50px rgba(19, 38, 80, 0.25);
 }
 .home-hero::before {
@@ -222,11 +222,52 @@
   border-color: #b0413e;
   background: rgba(176, 65, 62, 0.07);
 }
+.occupancy-item.is-waiting {
+  border-color: #b7862a;
+  background: rgba(183, 134, 42, 0.08);
+}
+.occupancy-item.is-late {
+  border-color: #b0413e;
+  background: rgba(176, 65, 62, 0.14);
+}
+.occupancy-item.is-maintenance {
+  border-color: #999;
+  background: rgba(0, 0, 0, 0.04);
+}
+.is-waiting .occupancy-state {
+  color: #b7862a;
+}
+.is-late .occupancy-state {
+  color: #b0413e;
+}
+.is-maintenance .occupancy-state {
+  color: #777;
+}
+.agenda-selo {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #2b5797;
+  background: #2b57971a;
+}
 .occupancy-top {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
+}
+.occupancy-thumb,
+.agenda-thumb {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #0b2149;
 }
 .occupancy-icon {
   color: #2b5797;
@@ -263,12 +304,18 @@
 }
 .agenda-item {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
   padding: 10px 14px;
   border-radius: 12px;
   border-left: 4px solid #2b5797;
   background: #f5f7fb;
+}
+.agenda-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 .agenda-item.is-now {
   border-color: #b7862a;
@@ -280,7 +327,7 @@
 .agenda-time {
   font-size: 13px;
   font-weight: 700;
-  color: #13305f;
+  color: #0b2149;
 }
 .agenda-resource {
   font-weight: 600;

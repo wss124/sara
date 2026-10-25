@@ -9,7 +9,6 @@ datasource db {
 }
 
 enum Perfil {
-  ALUNO
   PROFESSOR
   ADMIN
 }
@@ -19,10 +18,31 @@ enum TipoRecurso {
   EQUIPAMENTO
 }
 
+// Situação física do recurso. "ativo" continua indicando se o cadastro está
+// arquivado; o estado diz se ele pode ser usado agora.
+enum EstadoRecurso {
+  DISPONIVEL
+  EM_USO
+  EM_MANUTENCAO
+  INDISPONIVEL
+}
+
+// Ciclo da reserva: PENDENTE -> APROVADA -> EM_ANDAMENTO (retirada)
+// -> CONCLUIDA (devolução). RECUSADA e CANCELADA encerram o pedido sem uso.
+// Como o recurso voltou na devolução
+enum CondicaoDevolucao {
+  OK
+  COM_DEFEITO
+  INCOMPLETO
+}
+
 enum StatusSolicitacao {
   PENDENTE
   APROVADA
   RECUSADA
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
 }
 
 model Usuario {
@@ -30,11 +50,15 @@ model Usuario {
   nome      String
   email     String   @unique
   senha     String
-  perfil    Perfil   @default(ALUNO)
+  perfil    Perfil   @default(PROFESSOR)
   criadoEm  DateTime @default(now())
 
   solicitacoes      Solicitacao[] @relation("SolicitacoesDoUsuario")
   solicitacoesAprovadas Solicitacao[] @relation("AprovacoesDoAdmin")
+  reservasLancadas      Solicitacao[] @relation("LancamentosDoAdmin")
+  retiradasRegistradas  Solicitacao[] @relation("RetiradasRegistradas")
+  devolucoesRegistradas Solicitacao[] @relation("DevolucoesRegistradas")
+  recorrencias          Recorrencia[]
 }
 
 model Recurso {
@@ -42,10 +66,104 @@ model Recurso {
   nome       String
   tipo       TipoRecurso
   descricao  String?
+  // Onde o recurso fica ou deve ser retirado (ex.: "Dispensa do Bloco B")
+  localizacao String?
+  foto       String?
   ativo      Boolean     @default(true)
+  estado     EstadoRecurso @default(DISPONIVEL)
   criadoEm   DateTime    @default(now())
 
   solicitacoes Solicitacao[]
+  acessorios   RecursoAcessorio[]
+  recorrencias Recorrencia[]
+}
+
+// Turno de aula do campus. Horários no formato "HH:MM", no fuso do campus.
+model Turno {
+  id         String  @id @default(cuid())
+  nome       String
+  horaInicio String
+  horaFim    String
+  ordem      Int     @default(0)
+  ativo      Boolean @default(true)
+
+  solicitacoes Solicitacao[]
+  recorrencias Recorrencia[]
+}
+
+// Série de reservas semanais (ex.: toda terça à tarde até o fim do semestre).
+// Cada data vira uma Solicitacao ligada à série, que pode ser aprovada,
+// recusada ou cancelada sozinha ou junto com as outras.
+model Recorrencia {
+  id         String   @id @default(cuid())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  String
+  recurso    Recurso  @relation(fields: [recursoId], references: [id])
+  recursoId  String
+  turno      Turno?   @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  turnoId    String?
+  // Horário de cada ocorrência ("HH:MM", fuso do campus), copiado do turno
+  // na criação quando a série é por turno
+  horaInicio String
+  horaFim    String
+  // 0 = domingo ... 6 = sábado
+  diasSemana Int[]
+  // Primeiro e último dia da série ("AAAA-MM-DD", inclusivos)
+  dataInicio String
+  dataFim    String
+  observacao String?
+  criadoEm   DateTime @default(now())
+
+  solicitacoes Solicitacao[]
+}
+
+// Execuções de rotinas que devem acontecer uma vez só (ex.: resumo diário
+// "resumo-diario-2026-10-14"); a chave primária garante a unicidade
+model RotinaExecucao {
+  chave       String   @id
+  executadaEm DateTime @default(now())
+}
+
+// Item que acompanha recursos (extensão, cabo HDMI, controle remoto...)
+model Acessorio {
+  id          String   @id @default(cuid())
+  nome        String
+  descricao   String?
+  localizacao String?
+  quantidade  Int      @default(1)
+  // Unidades que não voltaram numa devolução; ficam fora do estoque até o
+  // admin regularizar
+  emFalta     Int      @default(0)
+  ativo       Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+
+  recursos     RecursoAcessorio[]
+  solicitacoes SolicitacaoAcessorio[]
+}
+
+// Kit do recurso: quais acessórios o acompanham e se são obrigatórios
+model RecursoAcessorio {
+  recurso     Recurso   @relation(fields: [recursoId], references: [id], onDelete: Cascade)
+  recursoId   String
+  acessorio   Acessorio @relation(fields: [acessorioId], references: [id], onDelete: Cascade)
+  acessorioId String
+  obrigatorio Boolean   @default(false)
+
+  @@id([recursoId, acessorioId])
+}
+
+// Acessórios que saem junto com uma reserva (obrigatórios + opcionais pedidos)
+model SolicitacaoAcessorio {
+  solicitacao   Solicitacao @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  solicitacaoId String
+  acessorio     Acessorio   @relation(fields: [acessorioId], references: [id])
+  acessorioId   String
+  quantidade    Int         @default(1)
+  // Checklist do balcão: conferido na entrega e na devolução
+  entregue      Boolean     @default(false)
+  devolvido     Boolean?
+
+  @@id([solicitacaoId, acessorioId])
 }
 
 model Solicitacao {
@@ -58,9 +176,46 @@ model Solicitacao {
   dataFim       DateTime
   status        StatusSolicitacao @default(PENDENTE)
   observacao    String?
+  motivoRecusa  String?
+
+  // Turno escolhido no pedido (só para exibição: o período real fica em
+  // dataInicio/dataFim e não muda se o turno for editado depois)
+  turno         Turno?            @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  turnoId       String?
+
+  // Série semanal da qual o pedido faz parte
+  recorrencia   Recorrencia?      @relation(fields: [recorrenciaId], references: [id], onDelete: SetNull)
+  recorrenciaId String?
+
+  // Reserva registrada diretamente pelo admin (pedido por telefone, balcão
+  // ou uso da própria instituição). No uso institucional, usuario é o admin
+  // e a observação descreve a finalidade.
+  institucional Boolean           @default(false)
+  lancadoPor    Usuario?          @relation("LancamentosDoAdmin", fields: [lancadoPorId], references: [id])
+  lancadoPorId  String?
 
   aprovadoPor   Usuario?          @relation("AprovacoesDoAdmin", fields: [aprovadoPorId], references: [id])
   aprovadoPorId String?
+
+  // Entrega e devolução registradas pelo admin no balcão
+  retiradoEm               DateTime?
+  observacaoRetirada       String?
+  retiradaRegistradaPor    Usuario?  @relation("RetiradasRegistradas", fields: [retiradaRegistradaPorId], references: [id])
+  retiradaRegistradaPorId  String?
+  devolvidoEm              DateTime?
+  devolucaoRegistradaPor   Usuario?  @relation("DevolucoesRegistradas", fields: [devolucaoRegistradaPorId], references: [id])
+  devolucaoRegistradaPorId String?
+  condicaoDevolucao        CondicaoDevolucao?
+  observacaoDevolucao      String?
+  canceladoEm              DateTime?
+  motivoCancelamento       String?
+
+  // Controle de envio único dos e-mails automáticos
+  avisoAtrasoEnviadoEm       DateTime?
+  lembreteRetiradaEnviadoEm  DateTime?
+  lembreteDevolucaoEnviadoEm DateTime?
+
+  acessorios SolicitacaoAcessorio[]
 
   criadoEm      DateTime          @default(now())
   atualizadoEm  DateTime          @updatedAt

@@ -14,6 +14,8 @@ import {
   Empty,
   Spin,
   Tooltip,
+  Upload,
+  Dropdown,
   message,
 } from 'antd';
 import {
@@ -24,19 +26,36 @@ import {
   EditOutlined,
   DeleteOutlined,
   CalendarOutlined,
+  CameraOutlined,
+  ToolOutlined,
+  EnvironmentOutlined,
+  ScheduleOutlined,
 } from '@ant-design/icons';
 import {
   listarRecursos,
   criarRecurso,
   atualizarRecurso,
   removerRecurso,
+  enviarFotoRecurso,
+  removerFotoRecurso,
+  urlFotoRecurso,
+  alterarEstadoRecurso,
 } from '../../services/recursoService';
+import { ESTADOS_RECURSO, ESTADOS_MANUAIS, recursoBloqueado } from '../../utils/estadoRecurso';
+import ReservasAfetadasModal from '../../components/ReservasAfetadasModal';
+import AgendaSemanalModal from '../../components/AgendaSemanalModal';
+import { listarAcessorios, definirKitRecurso } from '../../services/acessorioService';
+import KitEditor from './KitEditor';
+import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
 import './Resources.css';
 
 const TIPOS = {
   SALA: { label: 'Sala', icon: <BankOutlined /> },
   EQUIPAMENTO: { label: 'Equipamento', icon: <LaptopOutlined /> },
 };
+
+const FORMATOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
+const TAMANHO_MAXIMO_FOTO = 2 * 1024 * 1024; // 2 MB, mesmo limite do backend
 
 function getUser() {
   try {
@@ -46,9 +65,11 @@ function getUser() {
   }
 }
 
+// Arquivado > estado físico (manutenção, em uso...) > agenda do momento
 function getStatus(recurso) {
   if (!recurso.ativo) return { label: 'Inativo', className: 'status-inativo' };
-  if (recurso.ocupadoAgora) return { label: 'Em uso agora', className: 'status-ocupado' };
+  if (recurso.estado !== 'DISPONIVEL') return ESTADOS_RECURSO[recurso.estado];
+  if (recurso.ocupadoAgora) return { label: 'Reservado agora', className: 'status-ocupado' };
   return { label: 'Disponível agora', className: 'status-livre' };
 }
 
@@ -64,7 +85,25 @@ function Resources() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [afetadas, setAfetadas] = useState(null);
+  const [agendaDe, setAgendaDe] = useState(null);
+  const [acessorios, setAcessorios] = useState([]);
   const [form] = Form.useForm();
+  const tipoNoForm = Form.useWatch('tipo', form);
+
+  // Foto escolhida no modal (ainda não enviada) e pedido de remoção da atual
+  const [novaFoto, setNovaFoto] = useState(null);
+  const [removerFoto, setRemoverFoto] = useState(false);
+
+  const previewNovaFoto = useMemo(
+    () => (novaFoto ? URL.createObjectURL(novaFoto) : null),
+    [novaFoto]
+  );
+  useEffect(() => () => previewNovaFoto && URL.revokeObjectURL(previewNovaFoto), [previewNovaFoto]);
+
+  const fotoAtual = editando?.foto && !removerFoto ? urlFotoRecurso(editando.foto) : null;
+  const preview = previewNovaFoto || fotoAtual || CAPAS_PADRAO[tipoNoForm || 'SALA'];
+  const temFotoPropria = Boolean(previewNovaFoto || fotoAtual);
 
   const carregar = () =>
     listarRecursos()
@@ -91,33 +130,57 @@ function Resources() {
   }, [recursos, busca, tipo]);
 
   const ativos = recursos.filter((r) => r.ativo);
+  const emUso = (r) => r.estado === 'EM_USO' || (r.estado === 'DISPONIVEL' && r.ocupadoAgora);
   const resumo = [
     { label: 'Total de recursos', value: ativos.length },
-    { label: 'Disponíveis agora', value: ativos.filter((r) => !r.ocupadoAgora).length },
-    { label: 'Em uso agora', value: ativos.filter((r) => r.ocupadoAgora).length },
+    {
+      label: 'Disponíveis agora',
+      value: ativos.filter((r) => r.estado === 'DISPONIVEL' && !r.ocupadoAgora).length,
+    },
+    { label: 'Em uso ou reservados agora', value: ativos.filter(emUso).length },
+    { label: 'Em manutenção', value: ativos.filter((r) => r.estado === 'EM_MANUTENCAO').length },
   ];
 
   const abrirModal = (recurso = null) => {
     setEditando(recurso);
+    listarAcessorios()
+      .then(setAcessorios)
+      .catch(() => message.error('Erro ao carregar acessórios.'));
+    setNovaFoto(null);
+    setRemoverFoto(false);
     form.setFieldsValue(
       recurso
-        ? { nome: recurso.nome, tipo: recurso.tipo, descricao: recurso.descricao }
-        : { nome: '', tipo: 'SALA', descricao: '' }
+        ? {
+            nome: recurso.nome,
+            tipo: recurso.tipo,
+            descricao: recurso.descricao,
+            localizacao: recurso.localizacao,
+            kit: recurso.acessorios.map((a) => ({ acessorioId: a.id, obrigatorio: a.obrigatorio })),
+          }
+        : { nome: '', tipo: 'SALA', descricao: '', localizacao: '', kit: [] }
     );
     setModalAberto(true);
   };
 
   const salvar = async () => {
-    const valores = await form.validateFields();
+    const { kit, ...valores } = await form.validateFields();
     setSalvando(true);
     try {
-      if (editando) {
-        await atualizarRecurso(editando.id, valores);
-        message.success('Recurso atualizado.');
-      } else {
-        await criarRecurso(valores);
-        message.success('Recurso cadastrado.');
+      const recurso = editando
+        ? await atualizarRecurso(editando.id, valores)
+        : await criarRecurso(valores);
+      await definirKitRecurso(recurso.id, kit);
+
+      // Se só o envio da foto falhar, salvar de novo edita em vez de duplicar
+      if (!editando) setEditando(recurso);
+
+      if (novaFoto) {
+        await enviarFotoRecurso(recurso.id, novaFoto);
+      } else if (removerFoto && editando?.foto) {
+        await removerFotoRecurso(recurso.id);
       }
+
+      message.success(editando ? 'Recurso atualizado.' : 'Recurso cadastrado.');
       setModalAberto(false);
       carregar();
     } catch (error) {
@@ -127,12 +190,43 @@ function Resources() {
     }
   };
 
+  // Valida a imagem no navegador e guarda para enviar ao salvar
+  const escolherFoto = (arquivo) => {
+    if (!FORMATOS_FOTO.includes(arquivo.type)) {
+      message.error('Escolha uma imagem JPG, PNG ou WebP.');
+    } else if (arquivo.size > TAMANHO_MAXIMO_FOTO) {
+      message.error('A foto deve ter no máximo 2 MB.');
+    } else {
+      setNovaFoto(arquivo);
+      setRemoverFoto(false);
+    }
+    return Upload.LIST_IGNORE;
+  };
+
+  const tirarFoto = () => {
+    setNovaFoto(null);
+    setRemoverFoto(true);
+  };
+
   const alternarAtivo = async (recurso) => {
     try {
       await atualizarRecurso(recurso.id, { ativo: !recurso.ativo });
       carregar();
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao atualizar recurso.');
+    }
+  };
+
+  const mudarEstado = async (recurso, estado) => {
+    try {
+      const resultado = await alterarEstadoRecurso(recurso.id, estado);
+      message.success(`${recurso.nome}: ${ESTADOS_RECURSO[estado].label.toLowerCase()}.`);
+      carregar();
+      if (resultado.reservasAfetadas?.length) {
+        setAfetadas({ recurso: recurso.nome, reservas: resultado.reservasAfetadas });
+      }
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao alterar o estado.');
     }
   };
 
@@ -168,7 +262,7 @@ function Resources() {
 
       <Row gutter={[16, 16]}>
         {resumo.map((item) => (
-          <Col xs={24} sm={8} key={item.label}>
+          <Col xs={12} lg={6} key={item.label}>
             <div className="resources-summary">
               <span className="resources-summary-value">{item.value}</span>
               <span className="resources-summary-label">{item.label}</span>
@@ -217,31 +311,64 @@ function Resources() {
           {filtrados.map((recurso) => {
             const status = getStatus(recurso);
             return (
-              <Col xs={24} sm={12} xl={8} key={recurso.id}>
+              <Col xs={24} sm={12} lg={8} xxl={6} key={recurso.id}>
                 <div className={`resource-card ${recurso.ativo ? '' : 'is-inativo'}`}>
-                  <div className="resource-card-top">
+                  <div className="resource-cover">
+                    <img src={capaDoRecurso(recurso)} alt={recurso.nome} loading="lazy" />
                     <div className="resource-icon">{TIPOS[recurso.tipo].icon}</div>
                     <span className={`resource-status ${status.className}`}>{status.label}</span>
                   </div>
 
                   <h3>{recurso.nome}</h3>
+                  {recurso.localizacao && (
+                    <span className="resource-location">
+                      <EnvironmentOutlined /> {recurso.localizacao}
+                    </span>
+                  )}
                   <p>{recurso.descricao || 'Sem descrição.'}</p>
+                  {recurso.acessorios.length > 0 && (
+                    <span className="resource-kit">
+                      Acompanha:{' '}
+                      {recurso.acessorios
+                        .map((a) => (a.obrigatorio ? a.nome : `${a.nome} (opcional)`))
+                        .join(', ')}
+                    </span>
+                  )}
 
                   <div className="resource-card-footer">
                     <span className="resource-type">{TIPOS[recurso.tipo].label}</span>
 
+                    {recurso.ativo && (
+                      <Tooltip title="Agenda da semana por turno">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<ScheduleOutlined />}
+                          className="resource-agenda"
+                          onClick={() => setAgendaDe(recurso)}
+                        >
+                          Agenda
+                        </Button>
+                      </Tooltip>
+                    )}
+
                     {recurso.ativo && !isAdmin && (
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<CalendarOutlined />}
-                        className="resource-request"
-                        onClick={() =>
-                          navigate('/requests', { state: { recursoId: recurso.id } })
-                        }
+                      <Tooltip
+                        title={recursoBloqueado(recurso) ? 'Indisponível para reserva no momento' : ''}
                       >
-                        Solicitar
-                      </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<CalendarOutlined />}
+                          className="resource-request"
+                          disabled={recursoBloqueado(recurso)}
+                          onClick={() =>
+                            navigate('/requests', { state: { recursoId: recurso.id } })
+                          }
+                        >
+                          Solicitar
+                        </Button>
+                      </Tooltip>
                     )}
 
                     {isAdmin && (
@@ -253,6 +380,28 @@ function Resources() {
                             onChange={() => alternarAtivo(recurso)}
                           />
                         </Tooltip>
+                        <Dropdown
+                          trigger={['click']}
+                          menu={{
+                            selectedKeys: [recurso.estado],
+                            items: ESTADOS_MANUAIS.map((estado) => ({
+                              key: estado,
+                              label: ESTADOS_RECURSO[estado].label,
+                              disabled: recurso.estado === 'EM_USO',
+                            })),
+                            onClick: ({ key }) => key !== recurso.estado && mudarEstado(recurso, key),
+                          }}
+                        >
+                          <Tooltip
+                            title={
+                              recurso.estado === 'EM_USO'
+                                ? 'Em uso: registre a devolução para mudar o estado'
+                                : 'Alterar estado'
+                            }
+                          >
+                            <Button type="text" icon={<ToolOutlined />} />
+                          </Tooltip>
+                        </Dropdown>
                         <Tooltip title="Editar">
                           <Button
                             type="text"
@@ -282,6 +431,25 @@ function Resources() {
         </Row>
       )}
 
+      <AgendaSemanalModal
+        recurso={agendaDe}
+        onClose={() => setAgendaDe(null)}
+        onEscolher={
+          isAdmin
+            ? undefined
+            : ({ data, turnoId }) =>
+                navigate('/requests', { state: { recursoId: agendaDe.id, data, turnoId } })
+        }
+      />
+
+      {afetadas && (
+        <ReservasAfetadasModal
+          recurso={afetadas.recurso}
+          reservas={afetadas.reservas}
+          onClose={() => setAfetadas(null)}
+        />
+      )}
+
       <Modal
         title={editando ? 'Editar recurso' : 'Novo recurso'}
         open={modalAberto}
@@ -293,6 +461,28 @@ function Resources() {
         forceRender
       >
         <Form form={form} layout="vertical" requiredMark={false}>
+          <Form.Item label="Foto">
+            <div className="resource-photo-field">
+              <img src={preview} alt="Prévia da foto do recurso" />
+              <div className="resource-photo-actions">
+                <Upload accept={FORMATOS_FOTO.join(',')} showUploadList={false} beforeUpload={escolherFoto}>
+                  <Button icon={<CameraOutlined />}>
+                    {temFotoPropria ? 'Trocar foto' : 'Escolher foto'}
+                  </Button>
+                </Upload>
+                {temFotoPropria && (
+                  <Button type="text" danger onClick={tirarFoto}>
+                    Remover foto
+                  </Button>
+                )}
+                <span className="resource-photo-hint">
+                  {temFotoPropria
+                    ? 'JPG, PNG ou WebP, até 2 MB.'
+                    : 'Sem foto, o recurso usa a imagem padrão do tipo.'}
+                </span>
+              </div>
+            </div>
+          </Form.Item>
           <Form.Item
             name="nome"
             label="Nome"
@@ -308,8 +498,21 @@ function Resources() {
               ]}
             />
           </Form.Item>
+          <Form.Item name="localizacao" label="Localização">
+            <Input
+              prefix={<EnvironmentOutlined />}
+              placeholder="Onde fica ou onde retirar. Ex.: Dispensa do Bloco B"
+            />
+          </Form.Item>
           <Form.Item name="descricao" label="Descrição">
-            <Input.TextArea rows={3} placeholder="Capacidade, localização, observações..." />
+            <Input.TextArea rows={3} placeholder="Capacidade, observações..." />
+          </Form.Item>
+          <Form.Item
+            name="kit"
+            label="Itens que acompanham"
+            extra="Obrigatórios saem sempre com o recurso; opcionais o professor escolhe no pedido."
+          >
+            <KitEditor acessorios={acessorios} />
           </Form.Item>
         </Form>
       </Modal>

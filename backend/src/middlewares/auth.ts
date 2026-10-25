@@ -4,7 +4,7 @@ import { JWT_SECRET } from '../lib/jwt';
 
 interface UsuarioToken {
   id: string;
-  perfil: 'ALUNO' | 'PROFESSOR' | 'ADMIN';
+  perfil: 'PROFESSOR' | 'ADMIN';
 }
 
 declare global {

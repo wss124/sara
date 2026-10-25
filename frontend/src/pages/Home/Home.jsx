@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Row, Col, Progress, Segmented, Empty, Spin, message } from 'antd';
+import { Row, Col, Progress, Segmented, Empty, Spin, Alert, Button, message } from 'antd';
 import {
   AppstoreOutlined,
   FieldTimeOutlined,
@@ -8,11 +8,15 @@ import {
   ClockCircleOutlined,
   AuditOutlined,
   ReloadOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { carregarDashboard } from '../../services/dashboardService';
-import { getUsuarioLogado } from '../../utils/format';
+import { listarTurnos } from '../../services/turnoService';
+import { periodoDoTurno } from '../../utils/turnos';
+import { getUsuarioLogado, responsavelPela } from '../../utils/format';
 import { ICONES_TIPO } from '../Requests/constants';
+import { capaDoRecurso } from '../../utils/recursoFoto';
 import './Home.css';
 
 // Intervalo de atualização automática do painel de ocupação
@@ -22,7 +26,29 @@ const FILTROS = [
   { label: 'Todos', value: 'TODOS' },
   { label: 'Em uso', value: 'OCUPADOS' },
   { label: 'Livres', value: 'LIVRES' },
+  { label: 'Manutenção', value: 'MANUTENCAO' },
 ];
+
+// Classe do card e texto principal de cada situação vinda da API
+const SITUACOES = {
+  LIVRE: { className: 'is-free', texto: () => 'Disponível agora' },
+  AGUARDANDO_RETIRADA: { className: 'is-waiting', texto: () => 'Reservado, aguardando retirada' },
+  EM_USO: { className: 'is-busy', texto: (r) => `Em uso até ${hora(r.atual.dataFim)}` },
+  ATRASADO: {
+    className: 'is-late',
+    texto: (r) => `Devolução atrasada (era até ${hora(r.atual.dataFim)})`,
+  },
+  EM_MANUTENCAO: { className: 'is-maintenance', texto: () => 'Em manutenção' },
+  INDISPONIVEL: { className: 'is-maintenance', texto: () => 'Indisponível' },
+};
+
+// Selo da reserva na agenda do dia
+function seloDaAgenda(reserva) {
+  if (reserva.status === 'CONCLUIDA') return 'Devolvido';
+  if (reserva.status === 'EM_ANDAMENTO') return 'Em uso';
+  if (dayjs().isAfter(reserva.dataInicio)) return 'Aguardando retirada';
+  return null;
+}
 
 function hora(data) {
   return dayjs(data).format('HH:mm');
@@ -44,6 +70,8 @@ function Home() {
   const [dados, setDados] = useState(null);
   const [atualizando, setAtualizando] = useState(false);
   const [filtro, setFiltro] = useState('TODOS');
+  const [turnos, setTurnos] = useState([]);
+  const [turnoAgenda, setTurnoAgenda] = useState('TODOS');
 
   const carregar = () => {
     setAtualizando(true);
@@ -61,6 +89,12 @@ function Home() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    listarTurnos()
+      .then((lista) => setTurnos(lista.filter((t) => t.ativo)))
+      .catch(() => {});
+  }, []);
+
   if (!dados) {
     return (
       <div className="home-loading">
@@ -70,31 +104,38 @@ function Home() {
   }
 
   const { recursos, minhas, pendentesGerais, ocupacao, reservasHoje } = dados;
-  const livres = recursos.total - recursos.ocupados;
   const taxa = recursos.total ? Math.round((recursos.ocupados / recursos.total) * 100) : 0;
 
   const stats = [
     {
       title: 'Recursos livres agora',
-      value: livres,
+      value: recursos.livres,
       icon: <AppstoreOutlined />,
       color: '#2b5797',
       to: '/resources',
     },
     {
-      title: 'Recursos em uso agora',
+      title: 'Em uso ou reservados agora',
       value: recursos.ocupados,
       icon: <FieldTimeOutlined />,
-      color: '#5b3f99',
-      to: '/resources',
+      color: '#14305c',
+      to: isAdmin ? '/handovers' : '/resources',
     },
-    {
-      title: 'Minhas reservas aprovadas',
-      value: minhas.aprovadas,
-      icon: <CheckCircleOutlined />,
-      color: '#2f7d55',
-      to: '/requests',
-    },
+    isAdmin
+      ? {
+          title: 'Em manutenção ou indisponíveis',
+          value: recursos.emManutencao + recursos.indisponiveis,
+          icon: <ToolOutlined />,
+          color: '#b5462b',
+          to: '/resources',
+        }
+      : {
+          title: 'Minhas reservas aprovadas',
+          value: minhas.aprovadas,
+          icon: <CheckCircleOutlined />,
+          color: '#2f7d55',
+          to: '/requests',
+        },
     isAdmin
       ? {
           title: 'Solicitações para aprovar',
@@ -114,9 +155,21 @@ function Home() {
 
   const ocupacaoFiltrada = ocupacao.filter((r) => {
     if (filtro === 'OCUPADOS') return r.ocupadoAgora;
-    if (filtro === 'LIVRES') return !r.ocupadoAgora;
+    if (filtro === 'LIVRES') return r.situacao === 'LIVRE';
+    if (filtro === 'MANUTENCAO') return r.situacao === 'EM_MANUTENCAO' || r.situacao === 'INDISPONIVEL';
     return true;
   });
+
+  // Agenda do dia filtrada pelas reservas que caem no turno escolhido
+  const turnoFiltro = turnos.find((t) => t.id === turnoAgenda);
+  const agendaFiltrada = turnoFiltro
+    ? (() => {
+        const [inicio, fim] = periodoDoTurno(dayjs(), turnoFiltro);
+        return reservasHoje.filter(
+          (r) => dayjs(r.dataInicio).isBefore(fim) && dayjs(r.dataFim).isAfter(inicio)
+        );
+      })()
+    : reservasHoje;
 
   return (
     <div className="home">
@@ -142,6 +195,19 @@ function Home() {
           {dayjs(dados.geradoEm).format('HH:mm:ss')}
         </button>
       </div>
+
+      {isAdmin && recursos.atrasados > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          title={`${recursos.atrasados} recurso(s) com devolução atrasada.`}
+          action={
+            <Button size="small" danger onClick={() => navigate('/handovers')}>
+              Ver no balcão
+            </Button>
+          }
+        />
+      )}
 
       <Row gutter={[16, 16]}>
         {stats.map((stat) => (
@@ -178,7 +244,7 @@ function Home() {
             <Progress
               percent={taxa}
               showInfo={false}
-              strokeColor={{ from: '#13305f', to: '#5b3f99' }}
+              strokeColor={{ from: '#0b2149', to: '#14305c' }}
             />
 
             {ocupacaoFiltrada.length === 0 ? (
@@ -186,21 +252,20 @@ function Home() {
             ) : (
               <div className="occupancy-grid">
                 {ocupacaoFiltrada.map((r) => (
-                  <div
-                    key={r.id}
-                    className={`occupancy-item ${r.ocupadoAgora ? 'is-busy' : 'is-free'}`}
-                  >
+                  <div key={r.id} className={`occupancy-item ${SITUACOES[r.situacao].className}`}>
                     <div className="occupancy-top">
-                      <span className="occupancy-icon">{ICONES_TIPO[r.tipo]}</span>
-                      <span className="occupancy-name">{r.nome}</span>
+                      <img className="occupancy-thumb" src={capaDoRecurso(r)} alt="" loading="lazy" />
+                      <span className="occupancy-name">
+                        <span className="occupancy-icon">{ICONES_TIPO[r.tipo]}</span> {r.nome}
+                      </span>
                     </div>
-                    <span className="occupancy-state">
-                      {r.ocupadoAgora
-                        ? `Em uso até ${hora(r.atual.dataFim)}`
-                        : 'Disponível agora'}
-                    </span>
+                    <span className="occupancy-state">{SITUACOES[r.situacao].texto(r)}</span>
                     <span className="occupancy-detail">
-                      {r.ocupadoAgora ? r.atual.usuario.nome : descreverProxima(r.proxima)}
+                      {r.atual && r.ocupadoAgora
+                        ? responsavelPela(r.atual)
+                        : r.situacao === 'LIVRE'
+                          ? descreverProxima(r.proxima)
+                          : r.localizacao || ''}
                     </span>
                   </div>
                 ))}
@@ -216,16 +281,31 @@ function Home() {
                 <h3>Agenda de hoje</h3>
                 <span className="home-panel-sub">{dayjs().format('dddd, DD/MM')}</span>
               </div>
+              {turnos.length > 0 && (
+                <Segmented
+                  size="small"
+                  value={turnoAgenda}
+                  onChange={setTurnoAgenda}
+                  options={[
+                    { label: 'Todos', value: 'TODOS' },
+                    ...turnos.map((t) => ({ label: t.nome, value: t.id })),
+                  ]}
+                />
+              )}
             </div>
 
-            {reservasHoje.length === 0 ? (
-              <Empty description="Nenhuma reserva aprovada para hoje" />
+            {agendaFiltrada.length === 0 ? (
+              <Empty
+                description={turnoFiltro ? 'Nenhuma reserva neste turno hoje' : 'Nenhuma reserva para hoje'}
+              />
             ) : (
               <ul className="agenda">
-                {reservasHoje.map((reserva) => {
-                  const emAndamento =
-                    dayjs().isAfter(reserva.dataInicio) && dayjs().isBefore(reserva.dataFim);
-                  const encerrada = dayjs().isAfter(reserva.dataFim);
+                {agendaFiltrada.map((reserva) => {
+                  const emAndamento = reserva.status === 'EM_ANDAMENTO';
+                  const encerrada =
+                    reserva.status === 'CONCLUIDA' ||
+                    (reserva.status === 'APROVADA' && dayjs().isAfter(reserva.dataFim));
+                  const selo = seloDaAgenda(reserva);
                   return (
                     <li
                       key={reserva.id}
@@ -233,13 +313,22 @@ function Home() {
                         encerrada ? ' is-past' : ''
                       }`}
                     >
-                      <span className="agenda-time">
-                        {hora(reserva.dataInicio)} – {hora(reserva.dataFim)}
-                      </span>
-                      <span className="agenda-resource">
-                        {ICONES_TIPO[reserva.recurso.tipo]} {reserva.recurso.nome}
-                      </span>
-                      <span className="agenda-user">{reserva.usuario.nome}</span>
+                      <img
+                        className="agenda-thumb"
+                        src={capaDoRecurso(reserva.recurso)}
+                        alt=""
+                        loading="lazy"
+                      />
+                      <div className="agenda-info">
+                        <span className="agenda-time">
+                          {hora(reserva.dataInicio)} – {hora(reserva.dataFim)}
+                        </span>
+                        <span className="agenda-resource">
+                          {ICONES_TIPO[reserva.recurso.tipo]} {reserva.recurso.nome}
+                        </span>
+                        <span className="agenda-user">{responsavelPela(reserva)}</span>
+                        {selo && <span className="agenda-selo">{selo}</span>}
+                      </div>
                     </li>
                   );
                 })}

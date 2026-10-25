@@ -21,6 +21,13 @@ export async function consultarOcupacao(recursoId, inicio, fim) {
   return response.data;
 }
 
+export async function consultarPendentesNoPeriodo(recursoId, inicio, fim) {
+  const response = await api.get('/solicitacoes/pendentes-no-periodo', {
+    params: { recursoId, inicio, fim },
+  });
+  return response.data.pendentes;
+}
+
 // Administrador
 export async function listarSolicitacoes(status) {
   const response = await api.get('/solicitacoes', { params: status ? { status } : {} });
@@ -32,7 +39,36 @@ export async function aprovarSolicitacao(id) {
   return response.data;
 }
 
-export async function recusarSolicitacao(id) {
-  const response = await api.patch(`/solicitacoes/${id}/recusar`);
+export async function recusarSolicitacao(id, motivo) {
+  const response = await api.patch(`/solicitacoes/${id}/recusar`, { motivo });
   return response.data;
+}
+
+export async function lancarReserva(dados) {
+  const response = await api.post('/solicitacoes/reservas', dados);
+  return response.data;
+}
+
+export async function carregarMovimentacoes() {
+  const response = await api.get('/solicitacoes/movimentacoes');
+  return response.data;
+}
+
+export async function registrarRetirada(id, dados = {}) {
+  const response = await api.patch(`/solicitacoes/${id}/retirada`, dados);
+  return response.data;
+}
+
+export async function registrarDevolucao(id, dados = {}) {
+  const response = await api.patch(`/solicitacoes/${id}/devolucao`, dados);
+  return response.data;
+}
+
+export async function cancelarPeloAdmin(id, motivo) {
+  const response = await api.patch(`/solicitacoes/${id}/cancelamento`, { motivo });
+  return response.data;
+}
+
+export async function cancelarReserva(id) {
+  await api.delete(`/solicitacoes/reservas/${id}`);
 }

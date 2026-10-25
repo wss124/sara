@@ -7,6 +7,9 @@ import {
   LogoutOutlined,
   AuditOutlined,
   TeamOutlined,
+  SwapOutlined,
+  PaperClipOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import './UserLayout.css';
@@ -37,14 +40,16 @@ function UserLayout() {
       icon: <AppstoreOutlined />,
       label: 'Recursos',
     },
-    {
-      key: '/requests',
-      icon: <FileTextOutlined />,
-      label: 'Minhas solicitações',
-    },
+    // O admin não faz solicitações: ele lança reservas pela tela de Aprovações
+    ...(user?.perfil !== 'ADMIN'
+      ? [{ key: '/requests', icon: <FileTextOutlined />, label: 'Minhas solicitações' }]
+      : []),
     ...(user?.perfil === 'ADMIN'
       ? [
           { key: '/approvals', icon: <AuditOutlined />, label: 'Aprovações' },
+          { key: '/handovers', icon: <SwapOutlined />, label: 'Retiradas e devoluções' },
+          { key: '/accessories', icon: <PaperClipOutlined />, label: 'Acessórios' },
+          { key: '/shifts', icon: <ClockCircleOutlined />, label: 'Turnos' },
           { key: '/users', icon: <TeamOutlined />, label: 'Usuários' },
         ]
       : []),

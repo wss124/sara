@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button, Segmented, Popconfirm, Empty, Spin, message } from 'antd';
-import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { PlusOutlined, CloseOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import {
   listarMinhasSolicitacoes,
   cancelarSolicitacao,
 } from '../../services/solicitacaoService';
-import { formatarPeriodo } from '../../utils/format';
+import { periodoDaSolicitacao, descreverAcessorios, descreverSerie } from '../../utils/format';
+import { cancelarSerie } from '../../services/recorrenciaService';
 import RequestModal from './RequestModal';
 import { STATUS, ICONES_TIPO } from './constants';
 import './Requests.css';
@@ -15,8 +17,11 @@ function Requests() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Vindo da página de recursos pelo botão "Solicitar", já abre o formulário
+  // Vindo da página de recursos (botão "Solicitar" ou um turno livre da
+  // agenda), já abre o formulário preenchido
   const recursoInicial = location.state?.recursoId;
+  const dataInicial = location.state?.data;
+  const turnoInicial = location.state?.turnoId;
 
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,10 +54,20 @@ function Requests() {
   const cancelar = async (id) => {
     try {
       await cancelarSolicitacao(id);
-      message.success('Solicitação cancelada.');
+      message.success('Cancelado.');
       carregar();
     } catch (error) {
       message.error(error.response?.data?.error || 'Erro ao cancelar solicitação.');
+    }
+  };
+
+  const cancelarATodas = async (recorrenciaId) => {
+    try {
+      const { removidas, canceladas } = await cancelarSerie(recorrenciaId);
+      message.success(`Série cancelada: ${removidas + canceladas} data(s) liberada(s).`);
+      carregar();
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao cancelar a série.');
     }
   };
 
@@ -85,7 +100,10 @@ function Requests() {
           { label: `Todas (${solicitacoes.length})`, value: 'TODAS' },
           { label: `Pendentes (${contar('PENDENTE')})`, value: 'PENDENTE' },
           { label: `Aprovadas (${contar('APROVADA')})`, value: 'APROVADA' },
+          { label: `Em uso (${contar('EM_ANDAMENTO')})`, value: 'EM_ANDAMENTO' },
+          { label: `Concluídas (${contar('CONCLUIDA')})`, value: 'CONCLUIDA' },
           { label: `Recusadas (${contar('RECUSADA')})`, value: 'RECUSADA' },
+          { label: `Canceladas (${contar('CANCELADA')})`, value: 'CANCELADA' },
         ]}
       />
 
@@ -111,17 +129,50 @@ function Requests() {
 
               <div className="request-info">
                 <h3>{s.recurso.nome}</h3>
-                <span className="request-period">{formatarPeriodo(s.dataInicio, s.dataFim)}</span>
+                <span className="request-period">{periodoDaSolicitacao(s)}</span>
+                {s.recorrencia && (
+                  <span className="request-serie">Série: {descreverSerie(s.recorrencia)}</span>
+                )}
+                {s.fila && (
+                  <span className="request-fila">
+                    {s.fila.posicao}º na fila: {s.fila.total} pedidos disputam este horário. O
+                    administrador decide qual aprovar.
+                  </span>
+                )}
+                {s.recurso.localizacao && (
+                  <span className="request-location">
+                    <EnvironmentOutlined /> Retirar em: {s.recurso.localizacao}
+                  </span>
+                )}
+                {s.acessorios?.length > 0 && (
+                  <span className="request-acessorios">
+                    Acompanha: {descreverAcessorios(s.acessorios, Boolean(s.retiradoEm))}
+                  </span>
+                )}
                 {s.observacao && <p>{s.observacao}</p>}
+                {s.motivoRecusa && <span className="request-meta">Motivo da recusa: {s.motivoRecusa}</span>}
+                {s.motivoCancelamento && (
+                  <span className="request-meta">Cancelada pelo administrador: {s.motivoCancelamento}</span>
+                )}
+                {s.devolvidoEm && (
+                  <span className="request-meta">
+                    Devolvido em {dayjs(s.devolvidoEm).format('DD/MM HH:mm')}
+                    {s.observacaoDevolucao && ` · ${s.observacaoDevolucao}`}
+                  </span>
+                )}
               </div>
 
               <div className="request-side">
                 <span className={`request-status ${STATUS[s.status].className}`}>
                   {STATUS[s.status].label}
                 </span>
-                {s.status === 'PENDENTE' && (
+                {(s.status === 'PENDENTE' ||
+                  (s.status === 'APROVADA' && dayjs().isBefore(s.dataFim))) && (
                   <Popconfirm
-                    title="Cancelar solicitação?"
+                    title={s.status === 'PENDENTE' ? 'Cancelar solicitação?' : 'Cancelar reserva?'}
+                    description={
+                      s.status === 'APROVADA' ? 'O horário volta a ficar livre para outros professores.' : undefined
+                    }
                     okText="Sim, cancelar"
                     cancelText="Não"
                     okButtonProps={{ danger: true }}
@@ -132,6 +183,21 @@ function Requests() {
                     </Button>
                   </Popconfirm>
                 )}
+                {s.recorrencia &&
+                  (s.status === 'PENDENTE' || (s.status === 'APROVADA' && dayjs().isBefore(s.dataInicio))) && (
+                    <Popconfirm
+                      title="Cancelar a série inteira?"
+                      description="Datas pendentes são excluídas e reservas aprovadas que ainda não começaram são canceladas."
+                      okText="Cancelar série"
+                      cancelText="Voltar"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => cancelarATodas(s.recorrencia.id)}
+                    >
+                      <Button type="text" danger size="small">
+                        Cancelar série
+                      </Button>
+                    </Popconfirm>
+                  )}
               </div>
             </div>
           ))}
@@ -141,6 +207,8 @@ function Requests() {
       <RequestModal
         open={modalAberto}
         recursoInicial={recursoInicial}
+        dataInicial={dataInicial}
+        turnoInicial={turnoInicial}
         onClose={fecharModal}
         onCreated={() => {
           fecharModal();
