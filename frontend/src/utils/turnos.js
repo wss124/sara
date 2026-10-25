@@ -14,17 +14,22 @@ export const SITUACOES_TURNO = {
   PARCIAL: { label: 'Parcialmente ocupado', color: 'gold' },
   OCUPADO: { label: 'Ocupado', color: 'red' },
   ENCERRADO: { label: 'Já começou', color: 'default' },
+  FORA_DO_PRAZO: { label: 'Fora do prazo', color: 'default' },
 };
 
 // Situação do turno no dia a partir das reservas (aprovadas ou em uso) do
-// recurso: livre, parcialmente ocupado (com os trechos ocupados) ou ocupado
-export function situacaoDoTurno(dia, turno, reservas) {
+// recurso: livre, parcialmente ocupado (com os trechos ocupados) ou ocupado.
+// liberadoAPartirDe é o início mais cedo aceito pela antecedência mínima.
+export function situacaoDoTurno(dia, turno, reservas, liberadoAPartirDe = null) {
   const [inicio, fim] = periodoDoTurno(dia, turno);
   const conflitos = reservas.filter(
     (r) => dayjs(r.dataInicio).isBefore(fim) && dayjs(r.dataFim).isAfter(inicio)
   );
 
   if (inicio.isBefore(dayjs())) return { situacao: 'ENCERRADO', inicio, fim, conflitos };
+  if (liberadoAPartirDe && inicio.isBefore(liberadoAPartirDe)) {
+    return { situacao: 'FORA_DO_PRAZO', inicio, fim, conflitos };
+  }
   if (conflitos.length === 0) return { situacao: 'LIVRE', inicio, fim, conflitos };
 
   // Percorre as reservas em ordem: se nenhuma deixa um buraco, o turno está

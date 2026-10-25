@@ -8,7 +8,7 @@ const hora = (d) => dayjs(d).format('HH:mm');
 // Campo de formulário para reservar turnos inteiros: cada turno do dia aparece
 // com a disponibilidade no recurso, e só os livres podem ser marcados.
 // value = ids dos turnos escolhidos.
-function TurnoPicker({ data, reservas, turnos, value = [], onChange }) {
+function TurnoPicker({ data, reservas, turnos, liberadoAPartirDe = null, value = [], onChange }) {
   if (!data) {
     return <div className="slots-empty">Escolha o recurso e a data para ver os turnos.</div>;
   }
@@ -29,7 +29,7 @@ function TurnoPicker({ data, reservas, turnos, value = [], onChange }) {
   return (
     <div className="turnos">
       {turnos.map((turno) => {
-        const { situacao, inicio, fim, conflitos } = situacaoDoTurno(data, turno, reservas);
+        const { situacao, inicio, fim, conflitos } = situacaoDoTurno(data, turno, reservas, liberadoAPartirDe);
         const livre = situacao === 'LIVRE';
         const selecionado = value.includes(turno.id);
         return (

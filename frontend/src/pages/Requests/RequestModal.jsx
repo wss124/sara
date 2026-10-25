@@ -16,6 +16,7 @@ import {
 } from '../../services/solicitacaoService';
 import { listarUsuarios } from '../../services/usuarioService';
 import { listarTurnos } from '../../services/turnoService';
+import { obterConfiguracao } from '../../services/configuracaoService';
 import { periodoDoTurno } from '../../utils/turnos';
 import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
 
@@ -23,6 +24,8 @@ import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
 // reserva (ou uso institucional) e ela já é registrada como aprovada.
 // dataInicial ("AAAA-MM-DD") e turnoInicial vêm da agenda semanal do recurso.
 // O professor também pode repetir o pedido toda semana (série).
+// Para o professor, o calendário e os horários respeitam as regras de
+// antecedência; o admin lança reservas para qualquer horário futuro.
 
 // Limite da repetição, igual ao do backend (um semestre)
 const SERIE_MAX_DIAS = 183;
@@ -36,6 +39,15 @@ const DIAS_DA_SEMANA = [
   { label: 'Sáb', value: 6 },
   { label: 'Dom', value: 0 },
 ];
+
+// Ex.: "Peça com pelo menos 24 horas e no máximo 30 dias de antecedência."
+function textoDoPrazo({ antecedenciaMinHoras: horas, antecedenciaMaxDias: dias }, semanal) {
+  const minimo = horas > 0 ? `com pelo menos ${horas} ${horas === 1 ? 'hora' : 'horas'} e ` : 'com ';
+  const prazo = `${minimo}no máximo ${dias} ${dias === 1 ? 'dia' : 'dias'} de antecedência`;
+  return semanal
+    ? `O primeiro dia deve ser ${prazo}; as demais datas podem ir até o fim da repetição.`
+    : `Peça ${prazo}.`;
+}
 
 function RequestModal({
   open,
@@ -59,6 +71,7 @@ function RequestModal({
   const turnoPendente = useRef(null);
   // Pedidos pendentes de outras pessoas no período escolhido (fila)
   const [fila, setFila] = useState({ chave: null, pendentes: 0 });
+  const [regras, setRegras] = useState(null);
 
   const recursoId = Form.useWatch('recursoId', form);
   const data = Form.useWatch('data', form);
@@ -76,6 +89,16 @@ function RequestModal({
   const recursoSelecionado = recursos.find((r) => r.id === recursoId);
   const chave = recursoId && data ? `${recursoId}-${data.valueOf()}` : null;
   const reservas = chave && ocupacao.chave === chave ? ocupacao.lista : null;
+
+  // Início mais cedo aceito e último dia em que um pedido pode começar
+  const prazo = useMemo(
+    () =>
+      regras && {
+        liberadoAPartirDe: dayjs().add(regras.antecedenciaMinHoras, 'hour'),
+        ultimoDia: dayjs(regras.ultimoDiaPermitido),
+      },
+    [regras]
+  );
 
   // Período considerado para o estoque de acessórios: no modo turno, do início
   // do primeiro turno escolhido ao fim do último
@@ -134,6 +157,12 @@ function RequestModal({
     listarRecursos()
       .then((lista) => setRecursos(lista.filter((r) => r.ativo)))
       .catch(() => message.error('Erro ao carregar recursos.'));
+    setRegras(null);
+    if (!admin) {
+      obterConfiguracao()
+        .then(setRegras)
+        .catch(() => message.error('Erro ao carregar as regras de antecedência.'));
+    }
     if (admin) {
       listarUsuarios()
         .then((lista) => setUsuarios(lista.filter((u) => u.perfil !== 'ADMIN')))
@@ -336,11 +365,15 @@ function RequestModal({
           name="data"
           label={semanal ? 'Primeiro dia' : 'Data'}
           rules={[{ required: true, message: 'Escolha a data.' }]}
+          extra={regras && textoDoPrazo(regras, semanal)}
         >
           <DatePicker
             format="DD/MM/YYYY"
             style={{ width: '100%' }}
-            disabledDate={(d) => d.isBefore(dayjs(), 'day')}
+            disabledDate={(d) =>
+              d.isBefore(prazo?.liberadoAPartirDe ?? dayjs(), 'day') ||
+              Boolean(prazo && d.isAfter(prazo.ultimoDia, 'day'))
+            }
           />
         </Form.Item>
 
@@ -368,7 +401,12 @@ function RequestModal({
               ...(semanal ? [{ type: 'array', max: 1, message: 'Na repetição semanal, escolha um turno só.' }] : []),
             ]}
           >
-            <TurnoPicker data={chave ? data : null} reservas={reservas} turnos={turnos} />
+            <TurnoPicker
+              data={chave ? data : null}
+              reservas={reservas}
+              turnos={turnos}
+              liberadoAPartirDe={prazo?.liberadoAPartirDe}
+            />
           </Form.Item>
         ) : (
           <Form.Item
@@ -381,6 +419,7 @@ function RequestModal({
               data={chave ? data : null}
               reservas={reservas}
               turnos={turnos}
+              liberadoAPartirDe={prazo?.liberadoAPartirDe}
             />
           </Form.Item>
         )}

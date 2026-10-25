@@ -11,16 +11,79 @@ import {
   Popconfirm,
   Tooltip,
   Alert,
+  Card,
   message,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listarTurnos, criarTurno, atualizarTurno, removerTurno } from '../../services/turnoService';
+import { obterConfiguracao, atualizarConfiguracao } from '../../services/configuracaoService';
 import '../Requests/Requests.css';
 
 const FORMATO = 'HH:mm';
 
-// Admin: horários dos turnos de aula, usados para reservar um turno inteiro
+// Antecedência mínima e máxima dos pedidos dos professores. As reservas
+// lançadas pelo admin não seguem essas regras.
+function PrazosDosPedidos() {
+  const [form] = Form.useForm();
+  const [carregado, setCarregado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    obterConfiguracao()
+      .then((regras) => {
+        form.setFieldsValue(regras);
+        setCarregado(true);
+      })
+      .catch((error) => message.error(error.response?.data?.error || 'Erro ao carregar as regras.'));
+  }, [form]);
+
+  const salvar = async () => {
+    const valores = await form.validateFields();
+    setSalvando(true);
+    try {
+      form.setFieldsValue(await atualizarConfiguracao(valores));
+      message.success('Prazos atualizados. Valem para os próximos pedidos.');
+    } catch (error) {
+      message.error(error.response?.data?.error || 'Erro ao salvar as regras.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Card title="Prazos dos pedidos" loading={!carregado}>
+      <p>
+        Com quanto tempo de antecedência os professores podem pedir um recurso. Numa série
+        semanal, o máximo vale só para o primeiro dia.
+      </p>
+      <Form form={form} layout="inline" requiredMark={false} onFinish={salvar}>
+        <Form.Item
+          name="antecedenciaMinHoras"
+          label="Pelo menos"
+          rules={[{ required: true, message: 'Informe o mínimo.' }]}
+        >
+          <InputNumber min={0} max={720} precision={0} suffix="horas" style={{ width: 140 }} />
+        </Form.Item>
+        <Form.Item
+          name="antecedenciaMaxDias"
+          label="No máximo"
+          rules={[{ required: true, message: 'Informe o máximo.' }]}
+        >
+          <InputNumber min={1} max={365} precision={0} suffix="dias" style={{ width: 140 }} />
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" loading={salvando}>
+            Salvar prazos
+          </Button>
+        </Form.Item>
+      </Form>
+    </Card>
+  );
+}
+
+// Admin: horários dos turnos de aula, usados para reservar um turno inteiro,
+// e os prazos de antecedência dos pedidos
 function Shifts() {
   const [turnos, setTurnos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,8 +198,11 @@ function Shifts() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Turnos</h1>
-          <p>Horários de aula do campus. Os professores podem reservar um turno inteiro de uma vez.</p>
+          <h1>Turnos e prazos</h1>
+          <p>
+            Horários de aula do campus e com quanta antecedência os professores podem pedir um
+            recurso.
+          </p>
         </div>
         <Button
           type="primary"
@@ -164,6 +230,8 @@ function Shifts() {
         locale={{ emptyText: 'Nenhum turno cadastrado.' }}
         scroll={{ x: 'max-content' }}
       />
+
+      <PrazosDosPedidos />
 
       <Modal
         title={editando ? 'Editar turno' : 'Novo turno'}
