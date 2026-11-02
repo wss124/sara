@@ -9,6 +9,7 @@ import { acessorioRoutes } from './routes/acessorioRoutes';
 import { turnoRoutes } from './routes/turnoRoutes';
 import { recorrenciaRoutes } from './routes/recorrenciaRoutes';
 import { configuracaoRoutes } from './routes/configuracaoRoutes';
+import { estatisticaRoutes } from './routes/estatisticaRoutes';
 import { UPLOADS_DIR } from './lib/upload';
 import { avisarMudanca } from './lib/eventos';
 
@@ -43,3 +44,4 @@ app.use('/acessorios', acessorioRoutes);
 app.use('/turnos', turnoRoutes);
 app.use('/recorrencias', recorrenciaRoutes);
 app.use('/configuracoes', configuracaoRoutes);
+app.use('/estatisticas', estatisticaRoutes);
