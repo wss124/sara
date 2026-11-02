@@ -1,0 +1,235 @@
+/* ---------- Página ---------- */
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stats-filtros {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.stats-filtros .page-segmented {
+  align-self: center;
+}
+.stats-tile {
+  cursor: default;
+}
+.stats-tile:hover {
+  transform: none;
+  box-shadow: 0 10px 30px rgba(19, 38, 80, 0.08);
+}
+.stats-tile-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #999;
+}
+.stats-coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+.stats-coluna > .home-panel {
+  height: auto;
+}
+.stats-info {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #999;
+  cursor: help;
+}
+
+/* ---------- Gráficos ---------- */
+.viz-hbars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.viz-hbar-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 160px) 1fr 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px;
+  border-radius: 8px;
+}
+.viz-hbar-row:hover {
+  background: #f4f6fa;
+}
+.viz-hbar-label {
+  overflow: hidden;
+  font-size: 13px;
+  color: #555;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.viz-hbar-track {
+  height: 12px;
+  border-radius: 4px;
+  background: #eef1f6;
+}
+.viz-hbar-fill {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 0 4px 4px 0;
+  background: #2a78d6;
+}
+.viz-hbar-value {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-cols {
+  display: grid;
+  grid-template-columns: repeat(var(--colunas), minmax(0, 1fr));
+  gap: 6px;
+  height: 240px;
+  padding-top: 8px;
+}
+.viz-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+}
+.viz-col-area {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  border-bottom: 1px solid #e3e6ec;
+  border-radius: 6px 6px 0 0;
+}
+.viz-col:hover .viz-col-area {
+  background: #f4f6fa;
+}
+.viz-col-fill {
+  display: block;
+  width: min(100%, 36px);
+  border-radius: 4px 4px 0 0;
+  background: #2a78d6;
+}
+.viz-col-value {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+.viz-col-label {
+  overflow: hidden;
+  padding: 6px 0 4px;
+  font-size: 11px;
+  text-align: center;
+  color: #888;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.viz-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.viz-stack-bar {
+  display: flex;
+  gap: 2px;
+  height: 20px;
+}
+.viz-stack-seg {
+  min-width: 4px;
+}
+.viz-stack-seg:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.viz-stack-seg:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.viz-stack-seg:only-child {
+  border-radius: 4px;
+}
+.viz-stack-empty {
+  flex: 1;
+  border-radius: 4px;
+  background: #eef1f6;
+}
+.viz-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.viz-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+}
+.viz-legend i {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.viz-legend strong {
+  margin-left: auto;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+.viz-legend small {
+  width: 36px;
+  text-align: right;
+  color: #999;
+}
+
+/* ---------- Ocorrências ---------- */
+.stats-ocorrencias {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stats-ocorrencias li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #555;
+  background: #f6f7f9;
+}
+.stats-ocorrencias strong {
+  margin-left: auto;
+  font-size: 16px;
+  color: #333;
+}
+.stats-ocorrencia-icone {
+  color: #999;
+}
+.stats-ocorrencias li.tem-ocorrencia .stats-ocorrencia-icone {
+  color: #d03b3b;
+}
+
+@media (max-width: 576px) {
+  .viz-hbar-row {
+    grid-template-columns: 90px 1fr 40px;
+    gap: 8px;
+  }
+  .viz-legend {
+    grid-template-columns: 1fr;
+  }
+}
