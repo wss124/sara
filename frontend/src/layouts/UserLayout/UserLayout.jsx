@@ -10,6 +10,7 @@ import {
   SwapOutlined,
   PaperClipOutlined,
   ClockCircleOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import './UserLayout.css';
@@ -48,6 +49,7 @@ function UserLayout() {
       ? [
           { key: '/approvals', icon: <AuditOutlined />, label: 'Aprovações' },
           { key: '/handovers', icon: <SwapOutlined />, label: 'Retiradas e devoluções' },
+          { key: '/statistics', icon: <BarChartOutlined />, label: 'Estatísticas' },
           { key: '/accessories', icon: <PaperClipOutlined />, label: 'Acessórios' },
           { key: '/shifts', icon: <ClockCircleOutlined />, label: 'Turnos e prazos' },
           { key: '/users', icon: <TeamOutlined />, label: 'Usuários' },
