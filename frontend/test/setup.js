@@ -1,10 +1,14 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
 dayjs.locale('pt-br');
+
+// Os formulários do Ant Design demoram a renderizar no jsdom, ainda mais com
+// a cobertura ligada; 1 s (o padrão do findBy/waitFor) fica no limite
+configure({ asyncUtilTimeout: 5000 });
 
 // Desmonta os componentes e limpa a sessão entre um teste e outro
 afterEach(() => {

@@ -9,6 +9,7 @@ export default defineConfig({
     include: ['test/**/*.test.{js,jsx}'],
     setupFiles: ['test/setup.js'],
     css: false,
+    testTimeout: 20000,
     coverage: {
       include: ['src/**/*.{js,jsx}'],
       exclude: ['src/main.jsx'],
