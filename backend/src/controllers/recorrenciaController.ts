@@ -8,6 +8,7 @@ import { montarItensDoPedido, type ItemPedido } from '../lib/estoqueAcessorios';
 import { validarPedido, aprovarPedido, buscarSemVaga } from './solicitacaoController';
 import * as notificar from '../emails/notificacoes';
 import type { DataRecusada } from '../emails/templates';
+import { buscarConfiguracao, ultimoDiaPermitido } from '../lib/configuracao';
 
 type ReqComId = Request<{ id: string }>;
 
@@ -57,7 +58,9 @@ interface DataConferida {
 }
 
 // Confere cada data da série como se fosse um pedido avulso (passado,
-// conflito com reservas aprovadas, estado do recurso, acessórios)
+// antecedência mínima, conflito com reservas aprovadas, estado do recurso,
+// acessórios). A antecedência máxima vale só para o início da série: as
+// demais datas podem ir até o fim do semestre.
 async function conferirDatas(
   recursoId: string,
   serie: ParametrosSerie,
@@ -71,10 +74,24 @@ async function conferirDatas(
   const montagem = await montarItensDoPedido(recursoId, acessorios);
   if (!montagem.ok) return { ok: false, status: 400, error: montagem.error };
 
+  const regras = await buscarConfiguracao();
+  const todas = gerarDatas(serie.dataInicio, serie.dataFim, serie.diasSemana);
+  if (todas[0]! > ultimoDiaPermitido(regras.antecedenciaMaxDias)) {
+    const dias = regras.antecedenciaMaxDias;
+    return {
+      ok: false,
+      status: 400,
+      error: `A repetição deve começar em no máximo ${dias} ${dias === 1 ? 'dia' : 'dias'}.`,
+    };
+  }
+
   const datas: DataConferida[] = [];
-  for (const data of gerarDatas(serie.dataInicio, serie.dataFim, serie.diasSemana)) {
+  for (const data of todas) {
     const { inicio, fim } = periodoDoTurno(data, serie);
-    const validacao = await validarPedido(recursoId, inicio, fim, acessorios);
+    const validacao = await validarPedido(recursoId, inicio, fim, acessorios, {
+      regras,
+      conferirMaxima: false,
+    });
     datas.push(
       validacao.ok
         ? { data, inicio, fim, ok: true, itens: validacao.itens }

@@ -17,6 +17,7 @@ import type { StatusSolicitacao, CondicaoDevolucao } from '../generated/prisma/e
 import * as notificar from '../emails/notificacoes';
 import { diaValido, periodoDoTurno } from '../lib/turnos';
 import { montarFila } from '../lib/fila';
+import { buscarConfiguracao, conferirAntecedencia, type RegrasAntecedencia } from '../lib/configuracao';
 
 const CONDICOES_DEVOLUCAO = ['OK', 'COM_DEFEITO', 'INCOMPLETO'];
 
@@ -100,7 +101,9 @@ const MOTIVO_BLOQUEIO: Partial<Record<string, string>> = {
 };
 
 // Validações comuns à solicitação do usuário e à reserva lançada pelo admin.
-// Devolve o período já convertido ou a mensagem de erro com o status HTTP.
+// As regras de antecedência só valem para o professor: o admin lança
+// reservas de última hora no balcão. Devolve o período já convertido ou a
+// mensagem de erro com o status HTTP.
 type ResultadoValidacao =
   | { ok: true; inicio: Date; fim: Date; itens: ItemPedido[] }
   | { ok: false; status: number; error: string };
@@ -109,7 +112,8 @@ export async function validarPedido(
   recursoId: unknown,
   inicio: Date | null,
   fim: Date | null,
-  acessorios?: unknown
+  acessorios?: unknown,
+  antecedencia?: { regras: RegrasAntecedencia; conferirMaxima?: boolean }
 ): Promise<ResultadoValidacao> {
   if (!recursoId || !inicio || !fim) {
     return { ok: false, status: 400, error: 'Informe o recurso, a data de início e a data de fim.' };
@@ -119,6 +123,12 @@ export async function validarPedido(
   }
   if (inicio < new Date()) {
     return { ok: false, status: 400, error: 'Não é possível reservar um horário no passado.' };
+  }
+  if (antecedencia) {
+    const erro = conferirAntecedencia(inicio, antecedencia.regras, {
+      conferirMaxima: antecedencia.conferirMaxima,
+    });
+    if (erro) return { ok: false, status: 400, error: erro };
   }
 
   const recurso = await prisma.recurso.findUnique({ where: { id: String(recursoId) } });
@@ -203,11 +213,18 @@ interface PedidoValidado {
 async function validarPeriodos(
   recursoId: unknown,
   periodos: Periodo[],
-  acessorios: unknown
+  acessorios: unknown,
+  regras?: RegrasAntecedencia
 ): Promise<{ ok: true; pedidos: PedidoValidado[] } | { ok: false; status: number; error: string }> {
   const pedidos: PedidoValidado[] = [];
   for (const periodo of periodos) {
-    const validacao = await validarPedido(recursoId, periodo.inicio, periodo.fim, acessorios);
+    const validacao = await validarPedido(
+      recursoId,
+      periodo.inicio,
+      periodo.fim,
+      acessorios,
+      regras && { regras }
+    );
     if (!validacao.ok) {
       const prefixo = periodo.turno ? `${periodo.turno.nome}: ` : '';
       return { ...validacao, error: prefixo + validacao.error };
@@ -237,7 +254,8 @@ export async function criar(req: Request, res: Response) {
     if (!resolvidos.ok) {
       return res.status(resolvidos.status).json({ error: resolvidos.error });
     }
-    const validacao = await validarPeriodos(recursoId, resolvidos.periodos, acessorios);
+    const regras = await buscarConfiguracao();
+    const validacao = await validarPeriodos(recursoId, resolvidos.periodos, acessorios, regras);
     if (!validacao.ok) {
       return res.status(validacao.status).json({ error: validacao.error });
     }

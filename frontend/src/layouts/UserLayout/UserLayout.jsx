@@ -49,7 +49,7 @@ function UserLayout() {
           { key: '/approvals', icon: <AuditOutlined />, label: 'Aprovações' },
           { key: '/handovers', icon: <SwapOutlined />, label: 'Retiradas e devoluções' },
           { key: '/accessories', icon: <PaperClipOutlined />, label: 'Acessórios' },
-          { key: '/shifts', icon: <ClockCircleOutlined />, label: 'Turnos' },
+          { key: '/shifts', icon: <ClockCircleOutlined />, label: 'Turnos e prazos' },
           { key: '/users', icon: <TeamOutlined />, label: 'Usuários' },
         ]
       : []),

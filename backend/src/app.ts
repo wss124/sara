@@ -8,6 +8,7 @@ import { usuarioRoutes } from './routes/usuarioRoutes';
 import { acessorioRoutes } from './routes/acessorioRoutes';
 import { turnoRoutes } from './routes/turnoRoutes';
 import { recorrenciaRoutes } from './routes/recorrenciaRoutes';
+import { configuracaoRoutes } from './routes/configuracaoRoutes';
 import { UPLOADS_DIR } from './lib/upload';
 
 // Aplicação Express sem o listen, para ser usada pelo servidor e pelos testes
@@ -28,3 +29,4 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/acessorios', acessorioRoutes);
 app.use('/turnos', turnoRoutes);
 app.use('/recorrencias', recorrenciaRoutes);
+app.use('/configuracoes', configuracaoRoutes);

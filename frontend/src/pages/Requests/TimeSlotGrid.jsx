@@ -33,9 +33,10 @@ function montarLinhas(turnos) {
   return { linhas, abertura, fechamento };
 }
 
-// Monta os blocos de 30 min do dia, marcando os que já passaram ou que
-// colidem com alguma reserva aprovada do recurso.
-function montarBlocos(data, reservas, abertura, fechamentoMin) {
+// Monta os blocos de 30 min do dia, marcando os que já passaram, os que
+// ficam antes do prazo de antecedência e os que colidem com alguma reserva
+// aprovada do recurso.
+function montarBlocos(data, reservas, abertura, fechamentoMin, liberadoAPartirDe) {
   const agora = dayjs();
   const blocos = [];
   const meiaNoite = data.startOf('day');
@@ -47,7 +48,9 @@ function montarBlocos(data, reservas, abertura, fechamentoMin) {
     const reservado = reservas.some(
       (r) => dayjs(r.dataInicio).isBefore(fim) && dayjs(r.dataFim).isAfter(inicio)
     );
-    blocos.push({ inicio, fim, reservado, passado: inicio.isBefore(agora) });
+    const passado = inicio.isBefore(agora);
+    const foraDoPrazo = !passado && Boolean(liberadoAPartirDe) && inicio.isBefore(liberadoAPartirDe);
+    blocos.push({ inicio, fim, reservado, passado, foraDoPrazo });
     inicio = fim;
   }
   return blocos;
@@ -57,14 +60,14 @@ function montarBlocos(data, reservas, abertura, fechamentoMin) {
 // marca o fim. Usada como campo de formulário (value = [início, fim]).
 const SEM_TURNOS = [];
 
-function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, value, onChange }) {
+function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, liberadoAPartirDe = null, value, onChange }) {
   const [inicioPendente, setInicioPendente] = useState(null);
   const [hover, setHover] = useState(null);
 
   const { linhas, abertura, fechamento } = useMemo(() => montarLinhas(turnos), [turnos]);
   const blocos = useMemo(
-    () => (data && reservas ? montarBlocos(data, reservas, abertura, fechamento) : []),
-    [data, reservas, abertura, fechamento]
+    () => (data && reservas ? montarBlocos(data, reservas, abertura, fechamento, liberadoAPartirDe) : []),
+    [data, reservas, abertura, fechamento, liberadoAPartirDe]
   );
 
   if (!data) {
@@ -79,7 +82,7 @@ function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, value, onChange }) 
   }
 
   const indice = (d) => blocos.findIndex((b) => b.inicio.isSame(d));
-  const livre = (b) => !b.reservado && !b.passado;
+  const livre = (b) => !b.reservado && !b.passado && !b.foraDoPrazo;
   const intervaloLivre = (de, ate) => blocos.slice(de, ate + 1).every(livre);
 
   // Faixa destacada: seleção pendente (com prévia no hover) ou valor confirmado
@@ -121,7 +124,7 @@ function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, value, onChange }) 
           .map((b, i) => ({ ...b, i }))
           .filter((b) => minutoDoDia(b.inicio) >= linha.de && minutoDoDia(b.inicio) < linha.ate);
         if (doTurno.length === 0) return null;
-        const situacao = linha.turno && situacaoDoTurno(data, linha.turno, reservas).situacao;
+        const situacao = linha.turno && situacaoDoTurno(data, linha.turno, reservas, liberadoAPartirDe).situacao;
         return (
           <div className={`slots-turno${linha.turno ? '' : ' is-intervalo'}`} key={linha.chave}>
             <span className="slots-turno-label">
@@ -138,7 +141,7 @@ function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, value, onChange }) 
                 const classes = [
                   'slot',
                   b.reservado && 'is-reservado',
-                  b.passado && !b.reservado && 'is-passado',
+                  (b.passado || b.foraDoPrazo) && !b.reservado && 'is-passado',
                   selecionado && 'is-selecionado',
                   faixa && b.i === faixa[0] && 'is-inicio',
                 ]
@@ -150,7 +153,15 @@ function TimeSlotGrid({ data, reservas, turnos = SEM_TURNOS, value, onChange }) 
                     key={b.i}
                     className={classes}
                     disabled={!livre(b)}
-                    title={b.reservado ? 'Já reservado' : b.passado ? 'Horário já passou' : undefined}
+                    title={
+                      b.reservado
+                        ? 'Já reservado'
+                        : b.passado
+                          ? 'Horário já passou'
+                          : b.foraDoPrazo
+                            ? 'Fora do prazo de antecedência'
+                            : undefined
+                    }
                     onClick={() => clicar(b.i)}
                     onMouseEnter={() => setHover(b.i)}
                     onMouseLeave={() => setHover(null)}
