@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal, Form, Radio, Input, Checkbox, Alert, message } from 'antd';
 import { registrarDevolucao } from '../../services/solicitacaoService';
+import { validarFormulario } from '../../utils/formulario';
 
 const CONDICOES = [
   { value: 'OK', label: 'Tudo certo' },
@@ -28,7 +29,8 @@ function DevolucaoModal({ reserva, onClose, onDone }) {
   }, [reserva, form]);
 
   const salvar = async () => {
-    const valores = await form.validateFields();
+    const valores = await validarFormulario(form);
+    if (!valores) return;
     setSalvando(true);
     try {
       const resultado = await registrarDevolucao(reserva.id, valores);

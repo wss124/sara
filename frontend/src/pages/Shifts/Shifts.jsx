@@ -19,6 +19,7 @@ import dayjs from 'dayjs';
 import { listarTurnos, criarTurno, atualizarTurno, removerTurno } from '../../services/turnoService';
 import { obterConfiguracao, atualizarConfiguracao } from '../../services/configuracaoService';
 import '../Requests/Requests.css';
+import { validarFormulario } from '../../utils/formulario';
 
 const FORMATO = 'HH:mm';
 
@@ -39,7 +40,8 @@ function PrazosDosPedidos() {
   }, [form]);
 
   const salvar = async () => {
-    const valores = await form.validateFields();
+    const valores = await validarFormulario(form);
+    if (!valores) return;
     setSalvando(true);
     try {
       form.setFieldsValue(await atualizarConfiguracao(valores));
@@ -117,7 +119,9 @@ function Shifts() {
   };
 
   const salvar = async () => {
-    const { nome, horario, ordem } = await form.validateFields();
+    const valores = await validarFormulario(form);
+    if (!valores) return;
+    const { nome, horario, ordem } = valores;
     const dados = {
       nome,
       ordem,
