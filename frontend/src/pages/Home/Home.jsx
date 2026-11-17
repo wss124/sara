@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row, Col, Progress, Segmented, Empty, Spin, Alert, Button, message } from 'antd';
 import {
@@ -11,7 +11,7 @@ import {
   ToolOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { carregarDashboard } from '../../services/dashboardService';
+import { carregarDashboard, ouvirAtualizacoes } from '../../services/dashboardService';
 import { listarTurnos } from '../../services/turnoService';
 import { periodoDoTurno } from '../../utils/turnos';
 import { getUsuarioLogado, responsavelPela } from '../../utils/format';
@@ -19,8 +19,10 @@ import { ICONES_TIPO } from '../Requests/constants';
 import { capaDoRecurso } from '../../utils/recursoFoto';
 import './Home.css';
 
-// Intervalo de atualização automática do painel de ocupação
-const INTERVALO_MS = 30_000;
+// O painel atualiza na hora quando algo muda (avisos do servidor via SSE).
+// O intervalo cobre o que muda só com o relógio, como uma reserva que começa
+// às 14:00 ou uma devolução que passa a ficar atrasada.
+const INTERVALO_MS = 60_000;
 
 const FILTROS = [
   { label: 'Todos', value: 'TODOS' },
@@ -72,21 +74,53 @@ function Home() {
   const [filtro, setFiltro] = useState('TODOS');
   const [turnos, setTurnos] = useState([]);
   const [turnoAgenda, setTurnoAgenda] = useState('TODOS');
+  const [aoVivo, setAoVivo] = useState(false);
+  // O erro aparece uma vez só, até o painel voltar a carregar
+  const erroAvisado = useRef(false);
 
   const carregar = () => {
     setAtualizando(true);
     return carregarDashboard()
-      .then(setDados)
-      .catch((error) =>
-        message.error(error.response?.data?.error || 'Erro ao carregar o dashboard.')
-      )
+      .then((resposta) => {
+        setDados(resposta);
+        erroAvisado.current = false;
+      })
+      .catch((error) => {
+        if (erroAvisado.current) return;
+        erroAvisado.current = true;
+        message.error(error.response?.data?.error || 'Erro ao carregar o dashboard.');
+      })
       .finally(() => setAtualizando(false));
   };
 
+  // Com a aba visível: canal de avisos aberto e atualização periódica. Com a
+  // aba oculta, tudo pausa; ao voltar, o painel recarrega na hora.
   useEffect(() => {
-    carregar();
-    const timer = setInterval(carregar, INTERVALO_MS);
-    return () => clearInterval(timer);
+    let fecharCanal = null;
+    let timer = null;
+
+    const ligar = () => {
+      carregar();
+      fecharCanal = ouvirAtualizacoes(carregar, setAoVivo);
+      timer = setInterval(carregar, INTERVALO_MS);
+    };
+    const desligar = () => {
+      fecharCanal?.();
+      clearInterval(timer);
+      fecharCanal = null;
+      setAoVivo(false);
+    };
+    const aoMudarVisibilidade = () => {
+      if (document.hidden) desligar();
+      else if (!fecharCanal) ligar();
+    };
+
+    if (!document.hidden) ligar();
+    document.addEventListener('visibilitychange', aoMudarVisibilidade);
+    return () => {
+      document.removeEventListener('visibilitychange', aoMudarVisibilidade);
+      desligar();
+    };
   }, []);
 
   useEffect(() => {
@@ -190,10 +224,22 @@ function Home() {
 
       <div className="home-section-header">
         <h2 className="home-section-title">Visão geral</h2>
-        <button type="button" className="home-refresh" onClick={carregar}>
-          <ReloadOutlined spin={atualizando} /> Atualizado às{' '}
-          {dayjs(dados.geradoEm).format('HH:mm:ss')}
-        </button>
+        <div className="home-refresh-area">
+          <span
+            className={`home-live${aoVivo ? ' is-on' : ''}`}
+            title={
+              aoVivo
+                ? 'O painel muda sozinho assim que algo acontece no sistema.'
+                : 'Sem conexão em tempo real; o painel atualiza a cada minuto.'
+            }
+          >
+            <i /> {aoVivo ? 'Ao vivo' : 'Reconectando'}
+          </span>
+          <button type="button" className="home-refresh" onClick={carregar}>
+            <ReloadOutlined spin={atualizando} /> Atualizado às{' '}
+            {dayjs(dados.geradoEm).format('HH:mm:ss')}
+          </button>
+        </div>
       </div>
 
       {isAdmin && recursos.atrasados > 0 && (
