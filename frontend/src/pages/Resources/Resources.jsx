@@ -48,6 +48,7 @@ import { listarAcessorios, definirKitRecurso } from '../../services/acessorioSer
 import KitEditor from './KitEditor';
 import { CAPAS_PADRAO, capaDoRecurso } from '../../utils/recursoFoto';
 import './Resources.css';
+import { validarFormulario } from '../../utils/formulario';
 
 const TIPOS = {
   SALA: { label: 'Sala', icon: <BankOutlined /> },
@@ -163,7 +164,9 @@ function Resources() {
   };
 
   const salvar = async () => {
-    const { kit, ...valores } = await form.validateFields();
+    const validos = await validarFormulario(form);
+    if (!validos) return;
+    const { kit, ...valores } = validos;
     setSalvando(true);
     try {
       const recurso = editando

@@ -21,6 +21,7 @@ import {
   regularizarAcessorio,
 } from '../../services/acessorioService';
 import '../Requests/Requests.css';
+import { validarFormulario } from '../../utils/formulario';
 
 // Admin: itens que acompanham os recursos (extensão, cabo HDMI, controle...)
 function Accessories() {
@@ -59,7 +60,8 @@ function Accessories() {
   };
 
   const salvar = async () => {
-    const valores = await form.validateFields();
+    const valores = await validarFormulario(form);
+    if (!valores) return;
     setSalvando(true);
     try {
       if (editando) {

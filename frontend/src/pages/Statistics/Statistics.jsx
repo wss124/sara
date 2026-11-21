@@ -34,7 +34,7 @@ const ATALHOS = [
 const CORES_PEDIDOS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
 
 // "1 período ocupado" / "3 períodos ocupados"
-const periodos = (n) => (n === 1 ? '1 período ocupado' : ` períodos ocupados`);
+const periodos = (n) => (n === 1 ? '1 período ocupado' : `${n} períodos ocupados`);
 
 const EXPLICACAO_OCUPACAO =
   'Cada recurso, em cada turno de cada dia útil (segunda a sexta), é um período. ' +

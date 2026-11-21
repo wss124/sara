@@ -19,6 +19,7 @@ import { listarTurnos } from '../../services/turnoService';
 import { obterConfiguracao } from '../../services/configuracaoService';
 import { periodoDoTurno } from '../../utils/turnos';
 import { ESTADOS_RECURSO, recursoBloqueado } from '../../utils/estadoRecurso';
+import { validarFormulario } from '../../utils/formulario';
 
 // Com `admin`, o modal vira "Nova reserva": o admin escolhe para quem é a
 // reserva (ou uso institucional) e ela já é registrada como aprovada.
@@ -225,7 +226,8 @@ function RequestModal({
   };
 
   const salvar = async () => {
-    const valores = await form.validateFields();
+    const valores = await validarFormulario(form);
+    if (!valores) return;
 
     if (semanal) {
       if (!parametrosSerie) return;
